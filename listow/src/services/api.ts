@@ -2,10 +2,11 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, AuthResponse, User, ShoppingList, ShoppingItem, CreateListData, CreateItemData, UpdateItemData } from '../types';
 
-// CONFIGURAÇÃO DO BACKEND - ALTERE AQUI SE NECESSÁRIO
-// Para Android Emulator: use 'http://10.0.2.2:8085/api'
-// Para dispositivo físico: use 'http://192.168.15.194:8085/api' (IP da sua máquina)
-const API_BASE_URL = 'http://10.0.2.2:8085/api'; // ← EMULADOR ANDROID
+// CONFIGURAÇÃO DO BACKEND - PRODUÇÃO
+// Backend em produção hospedado em: https://app.grupoigl.online
+// Para desenvolvimento local, altere para: 'http://10.0.2.2:8085/api' (Android Emulator)
+// ou 'http://192.168.15.194:8085/api' (dispositivo físico com IP da sua máquina)
+const API_BASE_URL = 'https://app.grupoigl.online/api'; // ← PRODUÇÃO
 
 class ApiService {
   private api: AxiosInstance;

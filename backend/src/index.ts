@@ -2,12 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Routes
+dotenv.config();
+
 import authRoutes from './routes/auth';
 import listRoutes from './routes/lists';
 import itemRoutes from './routes/items';
-
-dotenv.config();
+import pool from './config/database';
 
 const app = express();
 const PORT = process.env.PORT || 8085;
@@ -31,10 +31,45 @@ app.use('/api/auth', authRoutes);
 app.use('/api/lists', listRoutes);
 app.use('/api/items', itemRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Health check with database connection test
+app.get('/api/health', async (req, res) => {
   console.log('🏥 Health check request from:', req.ip, 'at', new Date().toISOString());
-  res.json({ status: 'OK', message: 'Listow API is running' });
+  
+  const timestamp = new Date().toISOString();
+  const apiVersion = process.env.npm_package_version || '1.0.0';
+  
+  let healthStatus = {
+    status: 'OK',
+    api: 'OK',
+    database: 'OK',
+    timestamp,
+    version: apiVersion
+  };
+  
+  let httpStatus = 200;
+  
+  try {
+    // Test database connection with a simple query
+    const dbResult = await pool.query('SELECT 1 as test');
+    
+    if (dbResult.rows.length === 1 && dbResult.rows[0].test === 1) {
+      console.log('✅ Database connection test successful');
+      healthStatus.database = 'OK';
+    } else {
+      console.log('❌ Database connection test failed - unexpected result');
+      healthStatus.database = 'ERROR';
+      healthStatus.status = 'ERROR';
+      httpStatus = 503;
+    }
+  } catch (error) {
+    console.error('❌ Database connection test failed:', error);
+    healthStatus.database = 'ERROR';
+    healthStatus.status = 'ERROR';
+    httpStatus = 503;
+  }
+  
+  console.log('🏥 Health check result:', healthStatus);
+  res.status(httpStatus).json(healthStatus);
 });
 
 // Error handling middleware
