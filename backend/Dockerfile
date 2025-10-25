@@ -10,25 +10,12 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
-<<<<<<< HEAD
 # Instalar todas as dependências
-=======
-# Instalar todas as dependências (incluindo devDependencies para build)
->>>>>>> 889b7454ea52daf474da048de4c2b1934c47e4f7
 RUN npm ci
 
 # Copiar código fonte
 COPY . .
 
-<<<<<<< HEAD
-=======
-# Compilar TypeScript
-RUN npm run build
-
-# Remover devDependencies após build para reduzir tamanho da imagem
-RUN npm prune --production
-
->>>>>>> 889b7454ea52daf474da048de4c2b1934c47e4f7
 # Expor porta
 EXPOSE 8085
 
