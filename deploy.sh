@@ -60,4 +60,16 @@ echo "📋 Logs dos containers:"
 docker-compose logs --tail=20
 
 echo "🎉 Deploy concluído!"
-echo "📱 API disponível em: http://192
+echo "📱 API disponível em: http://192.168.0.60:8085"
+echo "🔍 Health check: http://192.168.0.60:8085/api/health"
+echo "🗄️ PostgreSQL: 192.168.0.60:5432"
+echo ""
+echo "📋 Comandos úteis:"
+echo "  - Ver logs: docker-compose logs -f"
+echo "  - Parar: docker-compose down"
+echo "  - Reiniciar: docker-compose restart"
+echo "  - Atualizar: git pull && docker-compose up -d --build"
+echo ""
+echo "📱 Para configurar o app mobile:"
+echo "  Altere a URL da API em: listow/src/services/api.ts"
+echo "  const API_BASE_URL = 'http://192.168.0.60:8085/api';"
