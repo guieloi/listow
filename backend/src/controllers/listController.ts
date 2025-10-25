@@ -11,21 +11,39 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Query to get lists ordered by last item added (most recent first)
+    // Query to get both owned and shared lists
     const query = `
       SELECT 
         l.*,
         COALESCE(MAX(i.created_at), l.updated_at) as last_activity,
         COUNT(i.id) as total_items,
         COUNT(CASE WHEN i.is_completed = false THEN 1 END) as pending_items,
-        COUNT(CASE WHEN i.is_completed = true THEN 1 END) as completed_items
+        COUNT(CASE WHEN i.is_completed = true THEN 1 END) as completed_items,
+        CASE 
+          WHEN l.owner_id = $1 THEN 'owner'
+          ELSE lc.permission
+        END as user_role,
+        CASE 
+          WHEN l.owner_id = $1 THEN true
+          ELSE false
+        END as is_owner
       FROM shopping_lists l
       LEFT JOIN shopping_items i ON l.id = i.list_id
-      WHERE l.owner_id = $1
-      GROUP BY l.id, l.name, l.description, l.owner_id, l.is_shared, l.created_at, l.updated_at
+      LEFT JOIN list_collaborators lc ON l.id = lc.list_id AND lc.user_id = $1
+      WHERE l.owner_id = $1 OR lc.user_id = $1
+      GROUP BY l.id, l.name, l.description, l.owner_id, l.is_shared, l.created_at, l.updated_at, lc.permission
       ORDER BY last_activity DESC
     `;
     const result = await pool.query(query, [userId]);
+
+    console.log(`📋 Found ${result.rows.length} lists for user ${userId}:`, 
+      result.rows.map(row => ({ 
+        id: row.id, 
+        name: row.name, 
+        role: row.user_role,
+        is_owner: row.is_owner 
+      }))
+    );
 
     // Add empty items and collaborators arrays
     const lists = result.rows.map((row: any) => ({
@@ -290,7 +308,7 @@ export const getListCollaborators = async (req: Request, res: Response): Promise
       FROM list_collaborators lc
       JOIN users u ON lc.user_id = u.id
       WHERE lc.list_id = $1
-      ORDER BY lc.created_at ASC
+      ORDER BY lc.added_at ASC
     `, [listId]);
 
     console.log('✅ Found collaborators:', result.rows.length, result.rows);

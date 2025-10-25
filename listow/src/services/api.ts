@@ -70,6 +70,11 @@ class ApiService {
     return response.data.user;
   }
 
+  async getUserById(userId: number): Promise<User> {
+    const response: AxiosResponse<{ user: User }> = await this.api.get(`/auth/user/${userId}`);
+    return response.data.user;
+  }
+
   // Shopping Lists endpoints
   async getLists(): Promise<ShoppingList[]> {
     const response: AxiosResponse<ShoppingList[]> = await this.api.get('/lists');

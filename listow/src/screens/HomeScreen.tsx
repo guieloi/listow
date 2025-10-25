@@ -143,9 +143,15 @@ const HomeScreen: React.FC = () => {
       <View style={styles.listActions}>
         <TouchableOpacity
           style={styles.shareButton}
-          onPress={() => navigation.navigate('ShareList', { listId: item.id, listName: item.name })}
+          onPress={() => navigation.navigate('ShareList', { 
+            listId: item.id, 
+            listName: item.name,
+            isOwner: item.is_owner,
+            userRole: item.user_role,
+            ownerId: item.owner_id
+          })}
         >
-          <Text style={styles.shareButtonText}>📤</Text>
+          <Text style={styles.shareButtonText}>↗</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

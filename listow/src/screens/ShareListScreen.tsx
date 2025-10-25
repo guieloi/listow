@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList, ListCollaborator } from '../types';
+import { RootStackParamList, ListCollaborator, User } from '../types';
 import apiService from '../services/api';
 
 type ShareListScreenRouteProp = RouteProp<RootStackParamList, 'ShareList'>;
@@ -20,7 +20,7 @@ type ShareListScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Sh
 const ShareListScreen: React.FC = () => {
   const navigation = useNavigation<ShareListScreenNavigationProp>();
   const route = useRoute<ShareListScreenRouteProp>();
-  const { listId, listName } = route.params;
+  const { listId, listName, isOwner, userRole, ownerId } = route.params;
 
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState<'read' | 'write'>('read');
@@ -28,11 +28,31 @@ const ShareListScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [ownerInfo, setOwnerInfo] = useState<User | null>(null);
+  const [loadingOwner, setLoadingOwner] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ title: `Compartilhar ${listName}` });
-    fetchCollaborators();
-  }, [listName, navigation]);
+    if (isOwner) {
+      fetchCollaborators();
+    } else {
+      fetchOwnerInfo();
+    }
+  }, [listName, navigation, isOwner]);
+
+  const fetchOwnerInfo = async () => {
+    if (!ownerId) return;
+    
+    try {
+      setLoadingOwner(true);
+      const owner = await apiService.getUserById(ownerId);
+      setOwnerInfo(owner);
+    } catch (error) {
+      console.error('❌ Error fetching owner info:', error);
+    } finally {
+      setLoadingOwner(false);
+    }
+  };
 
   const fetchCollaborators = async () => {
     try {
@@ -176,96 +196,155 @@ const ShareListScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.shareSection}>
-        <Text style={styles.sectionTitle}>Compartilhar Lista</Text>
+      {isOwner ? (
+        // Interface para proprietários
+        <>
+          <View style={styles.shareSection}>
+            <Text style={styles.sectionTitle}>Compartilhar Lista</Text>
 
-        <TextInput
-          style={[styles.emailInput, emailError && styles.emailInputError]}
-          placeholder="Digite o email do usuário"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            validateEmail(text);
-          }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {emailError ? (
-          <Text style={styles.errorText}>{emailError}</Text>
-        ) : null}
+            <TextInput
+              style={[styles.emailInput, emailError && styles.emailInputError]}
+              placeholder="Digite o email do usuário"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                validateEmail(text);
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {emailError ? (
+              <Text style={styles.errorText}>{emailError}</Text>
+            ) : null}
 
-        <View style={styles.permissionContainer}>
-          <Text style={styles.permissionLabel}>Permissão:</Text>
-          <View style={styles.permissionButtons}>
+            <View style={styles.permissionContainer}>
+              <Text style={styles.permissionLabel}>Permissão:</Text>
+              <View style={styles.permissionButtons}>
+                <TouchableOpacity
+                  style={[styles.permissionButton, permission === 'read' && styles.permissionButtonActive]}
+                  onPress={() => setPermission('read')}
+                >
+                  <Text style={[styles.permissionButtonText, permission === 'read' && styles.permissionButtonTextActive]}>
+                    Leitura
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.permissionButton, permission === 'write' && styles.permissionButtonActive]}
+                  onPress={() => setPermission('write')}
+                >
+                  <Text style={[styles.permissionButtonText, permission === 'write' && styles.permissionButtonTextActive]}>
+                    Escrita
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <TouchableOpacity
-              style={[styles.permissionButton, permission === 'read' && styles.permissionButtonActive]}
-              onPress={() => setPermission('read')}
+              style={[styles.shareButton, (!email.trim() || sharing || emailError) && styles.shareButtonDisabled]}
+              onPress={handleShare}
+              disabled={!email.trim() || sharing || !!emailError}
             >
-              <Text style={[styles.permissionButtonText, permission === 'read' && styles.permissionButtonTextActive]}>
-                Leitura
+              <Text style={styles.shareButtonText}>
+                {sharing ? 'Compartilhando...' : 'Compartilhar'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.permissionButton, permission === 'write' && styles.permissionButtonActive]}
-              onPress={() => setPermission('write')}
-            >
-              <Text style={[styles.permissionButtonText, permission === 'write' && styles.permissionButtonTextActive]}>
-                Escrita
+            
+            {sharing && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.loadingText}>Verificando email...</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.collaboratorsSection}>
+            <Text style={styles.sectionTitle}>Colaboradores</Text>
+
+            {loading ? (
+              <ActivityIndicator size="small" color="#3498db" style={styles.loading} />
+            ) : collaborators.length === 0 ? (
+              <Text style={styles.noCollaborators}>Nenhum colaborador ainda</Text>
+            ) : (
+              <FlatList
+                data={collaborators}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderCollaborator}
+                style={styles.collaboratorsList}
+                ListHeaderComponent={() => (
+                  <Text style={styles.collaboratorsCount}>
+                    {collaborators.length} colaborador{collaborators.length !== 1 ? 'es' : ''}
+                  </Text>
+                )}
+              />
+            )}
+          </View>
+
+          <View style={styles.infoSection}>
+            <Text style={styles.infoTitle}>Sobre permissões:</Text>
+            <Text style={styles.infoText}>
+              • <Text style={styles.bold}>Leitura:</Text> O usuário pode ver e marcar itens como concluídos
+            </Text>
+            <Text style={styles.infoText}>
+              • <Text style={styles.bold}>Escrita:</Text> O usuário pode adicionar, editar e excluir itens
+            </Text>
+          </View>
+        </>
+      ) : (
+        // Interface para não proprietários
+        <View style={styles.nonOwnerSection}>
+          <Text style={styles.nonOwnerTitle}>Lista Compartilhada</Text>
+          
+          {loadingOwner ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#3498db" />
+              <Text style={styles.loadingText}>Carregando informações...</Text>
+            </View>
+          ) : (
+            <View style={styles.ownerInfoContainer}>
+              <Text style={styles.nonOwnerMessage}>
+                Você não é o proprietário desta lista.
               </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+              <Text style={styles.nonOwnerMessage}>
+                Você está recebendo um compartilhamento do usuário{' '}
+                <Text style={styles.ownerEmail}>
+                  {ownerInfo?.email || 'Carregando...'}
+                </Text>
+              </Text>
+              <Text style={styles.permissionInfo}>
+                Sua permissão: <Text style={styles.bold}>
+                  {userRole === 'read' ? 'Leitura' : userRole === 'write' ? 'Escrita' : 'Indefinida'}
+                </Text>
+              </Text>
+            </View>
+          )}
 
-        <TouchableOpacity
-          style={[styles.shareButton, (!email.trim() || sharing || emailError) && styles.shareButtonDisabled]}
-          onPress={handleShare}
-          disabled={!email.trim() || sharing || !!emailError}
-        >
-          <Text style={styles.shareButtonText}>
-            {sharing ? 'Compartilhando...' : 'Compartilhar'}
-          </Text>
-        </TouchableOpacity>
-        
-        {sharing && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#ffffff" />
-            <Text style={styles.loadingText}>Verificando email...</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.collaboratorsSection}>
-        <Text style={styles.sectionTitle}>Colaboradores</Text>
-
-        {loading ? (
-          <ActivityIndicator size="small" color="#3498db" style={styles.loading} />
-        ) : collaborators.length === 0 ? (
-          <Text style={styles.noCollaborators}>Nenhum colaborador ainda</Text>
-        ) : (
-          <FlatList
-            data={collaborators}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderCollaborator}
-            style={styles.collaboratorsList}
-            ListHeaderComponent={() => (
-              <Text style={styles.collaboratorsCount}>
-                {collaborators.length} colaborador{collaborators.length !== 1 ? 'es' : ''}
+          <View style={styles.infoSection}>
+            <Text style={styles.infoTitle}>Sobre suas permissões:</Text>
+            {userRole === 'read' ? (
+              <Text style={styles.infoText}>
+                • Você pode visualizar a lista e marcar itens como concluídos
+              </Text>
+            ) : userRole === 'write' ? (
+              <>
+                <Text style={styles.infoText}>
+                  • Você pode visualizar a lista e marcar itens como concluídos
+                </Text>
+                <Text style={styles.infoText}>
+                  • Você pode adicionar, editar e excluir itens
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.infoText}>
+                • Permissão não definida
               </Text>
             )}
-          />
-        )}
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>Sobre permissões:</Text>
-        <Text style={styles.infoText}>
-          • <Text style={styles.bold}>Leitura:</Text> O usuário pode ver e marcar itens como concluídos
-        </Text>
-        <Text style={styles.infoText}>
-          • <Text style={styles.bold}>Escrita:</Text> O usuário pode adicionar, editar e excluir itens
-        </Text>
-      </View>
+            <Text style={styles.infoText}>
+              • Apenas o proprietário pode compartilhar esta lista com outros usuários
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -461,6 +540,47 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+  nonOwnerSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  nonOwnerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  ownerInfoContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3498db',
+  },
+  nonOwnerMessage: {
+    fontSize: 16,
+    color: '#2c3e50',
+    marginBottom: 10,
+    lineHeight: 22,
+  },
+  ownerEmail: {
+    fontWeight: 'bold',
+    color: '#3498db',
+  },
+  permissionInfo: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginTop: 5,
   },
 });
 

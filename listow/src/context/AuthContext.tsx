@@ -48,7 +48,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
     } catch (error: any) {
       console.error('Login error:', error);
-      const message = error.response?.data?.error || 'Erro ao fazer login';
+      
+      let message = 'Erro ao fazer login';
+      
+      if (error.response?.data?.error) {
+        message = error.response.data.error;
+        
+        // Adicionar informação sobre existência do usuário se disponível
+        if (error.response.data.userExists !== undefined) {
+          if (!error.response.data.userExists) {
+            message = 'Usuário não encontrado no sistema. Verifique o email ou crie uma conta.';
+          } else {
+            message = 'Senha incorreta. Tente novamente.';
+          }
+        }
+      }
+      
       throw new Error(message);
     } finally {
       setIsLoading(false);

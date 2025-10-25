@@ -84,7 +84,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
 
     if (result.rows.length === 0) {
-      res.status(401).json({ error: 'Email ou senha incorretos' });
+      console.log('❌ User not found:', email);
+      res.status(401).json({ 
+        error: 'Usuário ou senha inválido',
+        userExists: false 
+      });
       return;
     }
 
@@ -98,7 +102,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      res.status(401).json({ error: 'Email ou senha incorretos' });
+      console.log('❌ Invalid password for user:', email);
+      res.status(401).json({ 
+        error: 'Usuário ou senha inválido',
+        userExists: true 
+      });
       return;
     }
 
@@ -145,6 +153,32 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
     res.json({ user: result.rows[0] });
   } catch (error) {
     console.error('Error getting user profile:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    if (!userId || isNaN(userId)) {
+      res.status(400).json({ error: 'ID do usuário inválido' });
+      return;
+    }
+
+    const result = await pool.query(
+      'SELECT id, name, email, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Error getting user by id:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };

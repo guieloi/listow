@@ -35,6 +35,8 @@ export interface ShoppingList {
   updated_at: string;
   items?: ShoppingItem[];
   collaborators?: ListCollaborator[];
+  is_owner?: boolean;
+  user_role?: 'owner' | 'read' | 'write';
 }
 
 export interface ShoppingItem {
@@ -90,7 +92,7 @@ export type RootStackParamList = {
   Register: undefined;
   Home: undefined;
   ListDetails: { listId: number; listName: string };
-  ShareList: { listId: number; listName: string };
+  ShareList: { listId: number; listName: string; isOwner?: boolean; userRole?: 'owner' | 'read' | 'write'; ownerId?: number };
 };
 
 // Context types

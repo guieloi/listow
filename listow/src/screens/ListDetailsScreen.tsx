@@ -98,7 +98,7 @@ const ListDetailsScreen: React.FC = () => {
           onPress={handleShareList}
           style={{ marginRight: 15 }}
         >
-          <Text style={{ fontSize: 16, color: '#3498db' }}>📤</Text>
+          <Text style={{ fontSize: 16, color: '#3498db' }}>↗</Text>
         </TouchableOpacity>
       ),
     });

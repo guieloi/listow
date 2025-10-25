@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
-import { register, login, getProfile } from '../controllers/authController';
+import { register, login, getProfile, getUserById } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
@@ -29,5 +29,6 @@ router.post('/login', (req: Request, res: Response, next: NextFunction) => {
 }, loginValidation, login);
 
 router.get('/profile', authenticateToken, getProfile);
+router.get('/user/:id', authenticateToken, getUserById);
 
 export default router;
