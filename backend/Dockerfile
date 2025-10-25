@@ -7,14 +7,11 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci --only=production
+# Instalar todas as dependências
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
-
-# Compilar TypeScript
-RUN npm run build
 
 # Expor porta
 EXPOSE 8085
@@ -22,6 +19,9 @@ EXPOSE 8085
 # Criar usuário não-root
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S listow -u 1001
+
+# Mudar propriedade dos arquivos para o usuário listow
+RUN chown -R listow:nodejs /app
 
 # Mudar para usuário não-root
 USER listow
