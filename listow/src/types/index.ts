@@ -4,6 +4,7 @@ export interface User {
   name: string;
   email: string;
   google_id?: string;
+  photo_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +38,8 @@ export interface ShoppingList {
   collaborators?: ListCollaborator[];
   is_owner?: boolean;
   user_role?: 'owner' | 'read' | 'write';
+  completed_items?: number;
+  total_items?: number;
 }
 
 export interface ShoppingItem {

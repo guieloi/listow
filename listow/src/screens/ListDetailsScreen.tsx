@@ -50,7 +50,7 @@ const sortItems = (items: ShoppingItem[]): ShoppingItem[] => {
     if (a.is_completed !== b.is_completed) {
       return a.is_completed ? 1 : -1;
     }
-    
+
     // Within each group, sort by date
     if (a.is_completed && b.is_completed) {
       // Both completed: sort by updated_at DESC (most recently completed first)
@@ -74,7 +74,7 @@ const ListDetailsScreen: React.FC = () => {
   const navigation = useNavigation<ListDetailsScreenNavigationProp>();
   const route = useRoute<ListDetailsScreenRouteProp>();
   const { listId, listName } = route.params;
-  
+
 
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,10 +110,10 @@ const ListDetailsScreen: React.FC = () => {
       console.log('Fetched items data:', fetchedItems);
       // Ensure all items have valid data
       const validatedItems = fetchedItems.map(validateItem);
-      
+
       // Sort items: non-completed first, then completed, both by creation date
       const sortedItems = sortItems(validatedItems);
-      
+
       setItems(sortedItems);
     } catch (error: any) {
       console.error('Error fetching items:', error);
@@ -144,13 +144,13 @@ const ListDetailsScreen: React.FC = () => {
       const newItem = await apiService.createItem(listId, {
         name: newItemText.trim(),
       });
-      
+
       // Add new item and reorder the list
       setItems(prev => {
         const updatedItems = [...prev, newItem];
         return sortItems(updatedItems);
       });
-      
+
       setNewItemText('');
     } catch (error: any) {
       Alert.alert('Erro', 'Erro ao adicionar item');
@@ -160,7 +160,7 @@ const ListDetailsScreen: React.FC = () => {
   const handleToggleItem = async (item: ShoppingItem) => {
     try {
       const updatedItem = await apiService.toggleItem(item.id);
-      
+
       // Update the item and reorder the list
       setItems(prev => {
         const updatedItems = prev.map(i => i.id === item.id ? updatedItem : i);
@@ -351,10 +351,10 @@ const ListDetailsScreen: React.FC = () => {
             {/* Mostrar quantidade apenas se tiver valor */}
             {item.quantity && item.quantity > 0 ? (
               <Text style={styles.detailText}>
-                Qtd: {item.quantity} {item.unit || 'un'}
+                {item.quantity} {item.unit || 'un'}
               </Text>
             ) : null}
-            
+
             {/* Mostrar preço apenas se tiver valor */}
             {item.price && item.price > 0 ? (
               <Text style={styles.detailText}>
@@ -396,7 +396,9 @@ const ListDetailsScreen: React.FC = () => {
           value={newItemText}
           onChangeText={setNewItemText}
           onSubmitEditing={handleAddItem}
-          returnKeyType="done"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          autoFocus={true}
         />
         <TouchableOpacity
           style={[styles.addButton, !newItemText.trim() && styles.addButtonDisabled]}
@@ -509,7 +511,7 @@ const ListDetailsScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Editar Item</Text>
-            
+
             <Text style={styles.inputLabel}>Nome do item:</Text>
             <TextInput
               style={styles.modalInput}
@@ -667,11 +669,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 15,
   },
-    itemDetailsContainer: {
-      flex: 1,
-      alignItems: 'flex-end',
-      justifyContent: 'center',
-    },
+  itemDetailsContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   detailText: {
     fontSize: 12,
     color: '#34495e',

@@ -20,6 +20,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from uploads directory
+import path from 'path';
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Log all requests
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path} from ${req.ip} at ${new Date().toISOString()}`);
@@ -34,10 +38,10 @@ app.use('/api/items', itemRoutes);
 // Health check with database connection test
 app.get('/api/health', async (req, res) => {
   console.log('🏥 Health check request from:', req.ip, 'at', new Date().toISOString());
-  
+
   const timestamp = new Date().toISOString();
   const apiVersion = process.env.npm_package_version || '1.0.0';
-  
+
   let healthStatus = {
     status: 'OK',
     api: 'OK',
@@ -45,13 +49,13 @@ app.get('/api/health', async (req, res) => {
     timestamp,
     version: apiVersion
   };
-  
+
   let httpStatus = 200;
-  
+
   try {
     // Test database connection with a simple query
     const dbResult = await pool.query('SELECT 1 as test');
-    
+
     if (dbResult.rows.length === 1 && dbResult.rows[0].test === 1) {
       console.log('✅ Database connection test successful');
       healthStatus.database = 'OK';
@@ -67,7 +71,7 @@ app.get('/api/health', async (req, res) => {
     healthStatus.status = 'ERROR';
     httpStatus = 503;
   }
-  
+
   console.log('🏥 Health check result:', healthStatus);
   res.status(httpStatus).json(healthStatus);
 });

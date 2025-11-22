@@ -10,12 +10,15 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 import { RootStackParamList, ShoppingList } from '../types';
+
+import * as ImagePicker from 'expo-image-picker';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -25,8 +28,25 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+
+  // Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileImage, setProfileImage] = useState<any>(null);
+
+  // Password Change State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   const { user, logout } = useAuth();
   const navigation = useNavigation<HomeScreenNavigationProp>();
+
+  useEffect(() => {
+    if (user?.name) {
+      setProfileName(user.name);
+    }
+  }, [user]);
 
   const fetchLists = async () => {
     try {
@@ -118,10 +138,82 @@ const HomeScreen: React.FC = () => {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Sair',
-          onPress: logout,
+          onPress: () => {
+            setShowProfileModal(false);
+            logout();
+          },
         },
       ]
     );
+  };
+
+  useEffect(() => {
+    if (user?.name) {
+      setProfileName(user.name);
+    }
+    if (user?.photo_url) {
+      setProfileImage({ uri: user.photo_url });
+    }
+  }, [user]);
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      Alert.alert('Permissão necessária', 'É necessário permitir o acesso à galeria para alterar a foto.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0]);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      if (!profileName.trim()) {
+        Alert.alert('Erro', 'O nome não pode ficar vazio.');
+        return;
+      }
+
+      await apiService.updateProfile(profileName, profileImage);
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+      setShowProfileModal(false);
+      // Force refresh or update context would be ideal here, but for now user needs to reload or we rely on local state update if implemented in context
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Erro', 'Falha ao atualizar perfil.');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    try {
+      if (!currentPassword || !newPassword) {
+        Alert.alert('Erro', 'Preencha todos os campos de senha.');
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        Alert.alert('Erro', 'A nova senha deve ter pelo menos 6 caracteres.');
+        return;
+      }
+
+      await apiService.changePassword(currentPassword, newPassword);
+      Alert.alert('Sucesso', 'Senha alterada com sucesso!');
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      Alert.alert('Erro', error.response?.data?.error || 'Falha ao alterar senha.');
+    }
   };
 
   const renderListItem = ({ item }: { item: ShoppingList }) => (
@@ -143,8 +235,8 @@ const HomeScreen: React.FC = () => {
       <View style={styles.listActions}>
         <TouchableOpacity
           style={styles.shareButton}
-          onPress={() => navigation.navigate('ShareList', { 
-            listId: item.id, 
+          onPress={() => navigation.navigate('ShareList', {
+            listId: item.id,
             listName: item.name,
             isOwner: item.is_owner,
             userRole: item.user_role,
@@ -169,16 +261,26 @@ const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Olá, {user?.name}!</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Sair</Text>
+        <View>
+          <Text style={styles.welcomeText}>Olá, {user?.name}!</Text>
+          <Text style={styles.subtitleText}>Suas listas de compras</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={() => setShowProfileModal(true)}
+        >
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       <View style={styles.listsHeader}>
-        <Text style={styles.sectionTitle}>Suas Listas</Text>
-        <TouchableOpacity 
-          style={styles.addButton} 
+        <Text style={styles.sectionTitle}>Minhas Listas</Text>
+        <TouchableOpacity
+          style={styles.addButton}
           onPress={handleCreateList}
           activeOpacity={0.7}
         >
@@ -236,6 +338,127 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Perfil */}
+      <Modal
+        visible={showProfileModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.profileModalContent}>
+            <Text style={styles.modalTitle}>Meu Perfil</Text>
+
+            <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.largeAvatarPlaceholder}>
+                  <Text style={styles.largeAvatarText}>
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.changePhotoText}>Alterar foto</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>Nome de exibição</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={profileName}
+              onChangeText={setProfileName}
+              placeholder="Seu nome"
+            />
+
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={[styles.modalInput, styles.disabledInput]}
+              value={user?.email}
+              editable={false}
+            />
+
+            <TouchableOpacity
+              style={styles.changePasswordButton}
+              onPress={() => setShowPasswordModal(true)}
+            >
+              <Text style={styles.changePasswordButtonText}>Alterar Senha</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.saveProfileButton}
+              onPress={handleSaveProfile}
+            >
+              <Text style={styles.saveProfileButtonText}>Salvar Alterações</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.logoutButtonFull}
+              onPress={handleLogout}
+            >
+              <Text style={styles.logoutButtonTextFull}>Sair da Conta</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.closeProfileButton}
+              onPress={() => setShowProfileModal(false)}
+            >
+              <Text style={styles.closeProfileButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Alterar Senha */}
+      <Modal
+        visible={showPasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Alterar Senha</Text>
+
+            <Text style={styles.inputLabel}>Senha Atual</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Digite sua senha atual"
+              secureTextEntry
+            />
+
+            <Text style={styles.inputLabel}>Nova Senha</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Digite a nova senha"
+              secureTextEntry
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.createButton]}
+                onPress={handleChangePassword}
+              >
+                <Text style={styles.createButtonText}>Alterar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -266,16 +489,29 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e1e8ed',
   },
   welcomeText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
   },
-  logoutButton: {
-    padding: 8,
+  subtitleText: {
+    fontSize: 14,
+    color: '#7f8c8d',
   },
-  logoutButtonText: {
-    color: '#e74c3c',
-    fontSize: 16,
+  profileButton: {
+    padding: 5,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3498db',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   listsHeader: {
     flexDirection: 'row',
@@ -284,15 +520,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#2c3e50',
   },
   addButton: {
     backgroundColor: '#3498db',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -303,20 +539,20 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#ffffff',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   listItem: {
     backgroundColor: '#ffffff',
     marginHorizontal: 20,
-    marginVertical: 5,
-    borderRadius: 8,
-    padding: 15,
+    marginVertical: 6,
+    borderRadius: 10,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
@@ -325,7 +561,7 @@ const styles = StyleSheet.create({
   },
   listName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2c3e50',
     marginBottom: 4,
   },
@@ -344,9 +580,12 @@ const styles = StyleSheet.create({
   shareButton: {
     padding: 8,
     marginLeft: 8,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 20,
   },
   shareButtonText: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#3498db',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -381,11 +620,19 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 400,
   },
+  profileModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 25,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: 'center',
   },
   modalInput: {
@@ -394,7 +641,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 15,
+    width: '100%',
+  },
+  disabledInput: {
+    backgroundColor: '#f5f5f5',
+    color: '#7f8c8d',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -420,6 +672,93 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: '#ffffff',
     textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  // Profile specific styles
+  profileImageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  largeAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#3498db',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  largeAvatarText: {
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  changePhotoText: {
+    color: '#3498db',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  inputLabel: {
+    alignSelf: 'flex-start',
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginBottom: 5,
+    fontWeight: '500',
+  },
+  saveProfileButton: {
+    backgroundColor: '#27ae60',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  saveProfileButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  logoutButtonFull: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e74c3c',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  logoutButtonTextFull: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  closeProfileButton: {
+    padding: 10,
+  },
+  closeProfileButtonText: {
+    color: '#7f8c8d',
+    fontSize: 16,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  changePasswordButton: {
+    backgroundColor: '#3498db',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  changePasswordButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

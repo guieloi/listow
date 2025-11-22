@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
-import { register, login, getProfile, getUserById } from '../controllers/authController';
+import * as authController from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
+import { upload } from '../config/multer';
 
 const router = Router();
 
@@ -21,14 +22,32 @@ const loginValidation = [
 router.post('/register', (req: Request, res: Response, next: NextFunction) => {
   console.log('📝 Register route hit from:', req.ip);
   next();
-}, registerValidation, register);
+}, registerValidation, authController.register);
 
 router.post('/login', (req: Request, res: Response, next: NextFunction) => {
   console.log('🔐 Login route hit from:', req.ip);
   next();
-}, loginValidation, login);
+}, loginValidation, authController.login);
 
-router.get('/profile', authenticateToken, getProfile);
-router.get('/user/:id', authenticateToken, getUserById);
+router.get('/profile', authenticateToken, authController.getProfile);
+router.get('/user/:id', authenticateToken, authController.getUserById);
+
+// New routes for profile update and password change
+router.put(
+  '/profile',
+  authenticateToken,
+  upload.single('photo'),
+  authController.updateProfile
+);
+
+router.put(
+  '/change-password',
+  authenticateToken,
+  [
+    body('currentPassword').notEmpty().withMessage('Senha atual é obrigatória'),
+    body('newPassword').isLength({ min: 6 }).withMessage('Nova senha deve ter no mínimo 6 caracteres'),
+  ],
+  authController.changePassword
+);
 
 export default router;

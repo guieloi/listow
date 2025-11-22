@@ -85,9 +85,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     if (result.rows.length === 0) {
       console.log('❌ User not found:', email);
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'Usuário ou senha inválido',
-        userExists: false 
+        userExists: false
       });
       return;
     }
@@ -103,9 +103,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       console.log('❌ Invalid password for user:', email);
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'Usuário ou senha inválido',
-        userExists: true 
+        userExists: true
       });
       return;
     }
@@ -179,6 +179,102 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
     res.json({ user: result.rows[0] });
   } catch (error) {
     console.error('Error getting user by id:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+export const updateProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { name } = req.body;
+    let photo_url = undefined;
+
+    if (req.file) {
+      // Construct the full URL for the uploaded file
+      const protocol = req.protocol;
+      const host = req.get('host');
+      photo_url = `${protocol}://${host}/uploads/${req.file.filename}`;
+    }
+
+    // Build query dynamically based on provided fields
+    let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
+    const values = [];
+    let paramCount = 1;
+
+    if (name) {
+      query += `, name = $${paramCount}`;
+      values.push(name);
+      paramCount++;
+    }
+
+    if (photo_url) {
+      query += `, photo_url = $${paramCount}`;
+      values.push(photo_url);
+      paramCount++;
+    }
+
+    query += ` WHERE id = $${paramCount} RETURNING id, name, email, photo_url, created_at, updated_at`;
+    values.push(userId);
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+      return;
+    }
+
+    // Get user's current password hash
+    const userResult = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+
+    if (userResult.rows.length === 0) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    const user = userResult.rows[0];
+
+    if (!user.password_hash) {
+      res.status(400).json({ error: 'Esta conta usa login social. Não é possível alterar senha.' });
+      return;
+    }
+
+    // Verify current password
+    const isValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isValid) {
+      res.status(401).json({ error: 'Senha atual incorreta' });
+      return;
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newPasswordHash, userId]
+    );
+
+    res.json({ message: 'Senha alterada com sucesso' });
+  } catch (error) {
+    console.error('Error changing password:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };

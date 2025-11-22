@@ -76,6 +76,37 @@ class ApiService {
     return response.data.user;
   }
 
+  async updateProfile(name: string, photo?: any): Promise<User> {
+    const formData = new FormData();
+    formData.append('name', name);
+
+    if (photo) {
+      // React Native image picker result handling
+      const uriParts = photo.uri.split('.');
+      const fileType = uriParts[uriParts.length - 1];
+
+      formData.append('photo', {
+        uri: photo.uri,
+        name: `photo.${fileType}`,
+        type: `image/${fileType}`,
+      } as any);
+    }
+
+    const response: AxiosResponse<{ user: User }> = await this.api.put('/auth/profile', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data.user;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await this.api.put('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+  }
+
   // Shopping Lists endpoints
   async getLists(): Promise<ShoppingList[]> {
     const response: AxiosResponse<ShoppingList[]> = await this.api.get('/lists');
