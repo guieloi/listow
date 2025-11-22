@@ -27,9 +27,10 @@ if docker ps | grep -q "listow-postgres"; then
     docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
 fi
 
-# Parar containers existentes
-echo "🛑 Parando containers existentes..."
-docker-compose down
+# Parar containers existentes (COMENTADO para evitar reiniciar o banco desnecessariamente)
+# O docker-compose up -d --build já vai recriar apenas o que mudou (backend)
+# echo "🛑 Parando containers existentes..."
+# docker-compose down
 
 # Atualizar código
 echo "📥 Atualizando código..."
