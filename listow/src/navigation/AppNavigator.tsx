@@ -42,7 +42,7 @@ const AppNavigator: React.FC = () => {
               component={HomeScreen}
               options={{
                 title: 'Listow',
-                headerLeft: null, // Remove back button
+                headerLeft: undefined, // Remove back button
               }}
             />
             <Stack.Screen

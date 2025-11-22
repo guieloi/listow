@@ -11,6 +11,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 // Utility function to safely format price
 const formatPrice = (price: any): string => {
@@ -89,6 +90,7 @@ const ListDetailsScreen: React.FC = () => {
   const [shareEmail, setShareEmail] = useState('');
   const [sharePermission, setSharePermission] = useState<'read' | 'write'>('write');
   const [sharing, setSharing] = useState(false);
+  const [longPressedItemId, setLongPressedItemId] = useState<number | null>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -98,7 +100,7 @@ const ListDetailsScreen: React.FC = () => {
           onPress={handleShareList}
           style={{ marginRight: 15 }}
         >
-          <Text style={{ fontSize: 16, color: '#3498db' }}>↗</Text>
+          <MaterialIcons name="people" size={24} color="#3498db" />
         </TouchableOpacity>
       ),
     });
@@ -303,28 +305,35 @@ const ListDetailsScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: ShoppingItem }) => {
     const handleLongPress = () => {
-      // Show action buttons temporarily
-      Alert.alert(
-        'Ações do Item',
-        `O que deseja fazer com "${item.name}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Editar', onPress: () => handleEditItem(item) },
-          { text: 'Excluir', style: 'destructive', onPress: () => handleDeleteItem(item) }
-        ]
-      );
+      setLongPressedItemId(item.id);
     };
 
     const handlePress = () => {
+      // Se o item está sendo pressionado, apenas fecha os ícones
+      if (longPressedItemId === item.id) {
+        setLongPressedItemId(null);
+      }
+    };
+
+    const handleCheckboxPress = () => {
       handleToggleItem(item);
     };
 
+    const isLongPressed = longPressedItemId === item.id;
+
     return (
-      <View style={[styles.itemContainer, item.is_completed && styles.itemCompleted]}>
+      <TouchableOpacity
+        style={[styles.itemContainer, item.is_completed && styles.itemCompleted]}
+        onLongPress={handleLongPress}
+        onPress={handlePress}
+        delayLongPress={500}
+        activeOpacity={0.7}
+      >
         {/* Checkbox à esquerda */}
         <TouchableOpacity
           style={styles.checkboxContainer}
-          onPress={handlePress}
+          onPress={handleCheckboxPress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.checkboxText}>
             {item.is_completed ? '☑' : '☐'}
@@ -332,39 +341,56 @@ const ListDetailsScreen: React.FC = () => {
         </TouchableOpacity>
 
         {/* Conteúdo principal */}
-        <TouchableOpacity
-          style={styles.itemContent}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          delayLongPress={500}
-        >
+        <View style={styles.itemContent}>
           <View style={styles.itemHeader}>
             <Text style={[styles.itemName, item.is_completed && styles.itemTextCompleted]}>
               {item.name || 'Item sem nome'}
             </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Detalhes do item (quantidade e preço) - apenas se houver valores */}
-        {(item.quantity && item.quantity > 0) || (item.price && item.price > 0) ? (
-          <View style={styles.itemDetailsContainer}>
-            {/* Mostrar quantidade apenas se tiver valor */}
-            {item.quantity && item.quantity > 0 ? (
-              <Text style={styles.detailText}>
-                {item.quantity} {item.unit || 'un'}
-              </Text>
+            {/* Detalhes do item (quantidade e preço) na mesma linha */}
+            {(item.quantity && item.quantity > 0) || (item.price && item.price > 0) ? (
+              <View style={styles.itemDetailsInline}>
+                {item.quantity && item.quantity > 0 ? (
+                  <Text style={styles.detailTextInline}>
+                    {item.quantity} {item.unit || 'un'}
+                  </Text>
+                ) : null}
+                {item.quantity && item.quantity > 0 && item.price && item.price > 0 && (
+                  <Text style={styles.detailSeparator}> • </Text>
+                )}
+                {item.price && item.price > 0 ? (
+                  <Text style={styles.detailTextInline}>
+                    {formatPrice(item.price)}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
-
-            {/* Mostrar preço apenas se tiver valor */}
-            {item.price && item.price > 0 ? (
-              <Text style={styles.detailText}>
-                {formatPrice(item.price)}
-              </Text>
-            ) : null}
           </View>
-        ) : null}
+        </View>
 
-      </View>
+        {/* Ícones de ação quando pressionado */}
+        {isLongPressed && (
+          <View style={styles.itemActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                setLongPressedItemId(null);
+                handleEditItem(item);
+              }}
+            >
+              <MaterialIcons name="edit" size={20} color="#f39c12" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                setLongPressedItemId(null);
+                handleDeleteItem(item);
+              }}
+            >
+              <MaterialIcons name="delete" size={20} color="#e74c3c" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -627,9 +653,10 @@ const styles = StyleSheet.create({
   itemContainer: {
     backgroundColor: '#ffffff',
     marginHorizontal: 15,
-    marginVertical: 5,
+    marginVertical: 4,
     borderRadius: 8,
-    padding: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
@@ -644,257 +671,56 @@ const styles = StyleSheet.create({
   },
   checkboxContainer: {
     marginRight: 12,
-    padding: 10, // Increased padding for larger touch area
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    minHeight: 44,
   },
   checkboxText: {
-    fontSize: 28, // Increased font size for larger visual
+    fontSize: 32,
     color: '#3498db',
   },
   itemContent: {
     flex: 1,
   },
   itemHeader: {
-    marginBottom: 8,
+    flex: 1,
   },
   itemName: {
     fontSize: 16,
     fontWeight: '500',
     color: '#2c3e50',
-  },
-  itemTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#95a5a6',
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  itemDetailsContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  detailText: {
-    fontSize: 12,
-    color: '#34495e',
-    backgroundColor: '#f1f2f6',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
     marginBottom: 2,
   },
-  itemActions: {
+  itemDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
-  editButton: {
-    padding: 8,
-    marginRight: 5,
-  },
-  editButtonText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteButtonText: {
-    fontSize: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
+  detailTextInline: {
+    fontSize: 12,
     color: '#7f8c8d',
-    marginBottom: 8,
   },
-  emptySubtext: {
-    fontSize: 14,
+  detailSeparator: {
+    fontSize: 12,
     color: '#bdc3c7',
-    textAlign: 'center',
-  },
-  emptyListContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#34495e',
-    marginBottom: 5,
-    marginTop: 10,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#e74c3c',
-  },
-  saveButton: {
-    backgroundColor: '#27ae60',
-  },
-  cancelButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  saveButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  // Share modal styles
-  permissionContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  permissionButton: {
-    flex: 1,
-    padding: 10,
-    borderWidth: 1,
-```
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  summary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 15,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
-  },
-  summaryText: {
-    fontSize: 14,
-    color: '#7f8c8d',
-  },
-  totalText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#27ae60',
-  },
-  itemContainer: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 15,
-    marginVertical: 5,
-    borderRadius: 8,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  itemCompleted: {
-    backgroundColor: '#f8f9fa',
-    opacity: 0.7,
-  },
-  checkboxContainer: {
-    marginRight: 12,
-    padding: 10, // Increased padding for larger touch area
-  },
-  checkboxText: {
-    fontSize: 28, // Increased font size for larger visual
-    color: '#3498db',
-  },
-  itemContent: {
-    flex: 1,
-  },
-  itemHeader: {
-    marginBottom: 8,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#2c3e50',
+    marginHorizontal: 4,
   },
   itemTextCompleted: {
     textDecorationLine: 'line-through',
     color: '#95a5a6',
   },
-  itemDetails: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  itemDetailsContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  detailText: {
-    fontSize: 12,
-    color: '#34495e',
-    backgroundColor: '#f1f2f6',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginBottom: 2,
-  },
   itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 8,
   },
-  editButton: {
+  actionButton: {
     padding: 8,
-    marginRight: 5,
-  },
-  editButtonText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteButtonText: {
-    fontSize: 16,
+    marginLeft: 8,
+    borderRadius: 4,
+    backgroundColor: '#f8f9fa',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1015,4 +841,3 @@ const styles = StyleSheet.create({
 });
 
 export default ListDetailsScreen;
-```

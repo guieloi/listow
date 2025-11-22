@@ -60,6 +60,8 @@ export interface ListCollaborator {
   user_id: number;
   permission: 'read' | 'write';
   added_at: string;
+  name: string;
+  email: string;
 }
 
 export interface CreateListData {
