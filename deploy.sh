@@ -20,15 +20,16 @@ if ! command -v docker-compose &> /dev/null; then
     sudo chmod +x /usr/local/bin/docker-compose
 fi
 
+# Fazer backup do banco se existir (ANTES de parar os containers)
+if docker ps | grep -q "listow-postgres"; then
+    echo "💾 Fazendo backup do banco..."
+    # Usar -T para evitar erro de TTY em ambientes não interativos
+    docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
+fi
+
 # Parar containers existentes
 echo "🛑 Parando containers existentes..."
 docker-compose down
-
-# Fazer backup do banco se existir
-if docker volume ls | grep -q "listow_postgres_data"; then
-    echo "💾 Fazendo backup do banco..."
-    docker-compose exec postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
-fi
 
 # Atualizar código
 echo "📥 Atualizando código..."
