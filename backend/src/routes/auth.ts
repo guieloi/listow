@@ -50,4 +50,6 @@ router.put(
   authController.changePassword
 );
 
+router.post('/save-token', authenticateToken, authController.savePushToken);
+
 export default router;

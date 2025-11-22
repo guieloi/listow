@@ -371,7 +371,7 @@ const ListDetailsScreen: React.FC = () => {
   const calculateTotal = () => {
     return items
       .filter(item => !item.is_completed && item.price !== undefined && item.price !== null && typeof item.price === 'number' && item.price > 0)
-      .reduce((total, item) => total + (item.price * (item.quantity || 1)), 0);
+      .reduce((total, item) => total + ((item.price || 0) * (item.quantity || 1)), 0);
   };
 
   if (loading) {
@@ -644,10 +644,206 @@ const styles = StyleSheet.create({
   },
   checkboxContainer: {
     marginRight: 12,
-    padding: 4,
+    padding: 10, // Increased padding for larger touch area
   },
   checkboxText: {
+    fontSize: 28, // Increased font size for larger visual
+    color: '#3498db',
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemHeader: {
+    marginBottom: 8,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#2c3e50',
+  },
+  itemTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#95a5a6',
+  },
+  itemDetails: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  itemDetailsContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  detailText: {
+    fontSize: 12,
+    color: '#34495e',
+    backgroundColor: '#f1f2f6',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editButton: {
+    padding: 8,
+    marginRight: 5,
+  },
+  editButtonText: {
+    fontSize: 16,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#7f8c8d',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#bdc3c7',
+    textAlign: 'center',
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
     fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#34495e',
+    marginBottom: 5,
+    marginTop: 10,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#e74c3c',
+  },
+  saveButton: {
+    backgroundColor: '#27ae60',
+  },
+  cancelButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  // Share modal styles
+  permissionContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  permissionButton: {
+    flex: 1,
+    padding: 10,
+    borderWidth: 1,
+```
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonDisabled: {
+    backgroundColor: '#bdc3c7',
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  summary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 15,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e8ed',
+  },
+  summaryText: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  totalText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#27ae60',
+  },
+  itemContainer: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 15,
+    marginVertical: 5,
+    borderRadius: 8,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  itemCompleted: {
+    backgroundColor: '#f8f9fa',
+    opacity: 0.7,
+  },
+  checkboxContainer: {
+    marginRight: 12,
+    padding: 10, // Increased padding for larger touch area
+  },
+  checkboxText: {
+    fontSize: 28, // Increased font size for larger visual
     color: '#3498db',
   },
   itemContent: {
@@ -811,6 +1007,12 @@ const styles = StyleSheet.create({
   shareButton: {
     backgroundColor: '#3498db',
   },
+  shareButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
 });
 
 export default ListDetailsScreen;
+```

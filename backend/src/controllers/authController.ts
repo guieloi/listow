@@ -278,3 +278,29 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
+
+export const savePushToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    const { token } = req.body;
+
+    if (!token) {
+      res.status(400).json({ error: 'Token é obrigatório' });
+      return;
+    }
+
+    // First, remove this token if it exists for any other user
+    await pool.query('DELETE FROM user_push_tokens WHERE token = $1 AND user_id != $2', [token, userId]);
+
+    // Insert or do nothing
+    await pool.query(
+      'INSERT INTO user_push_tokens (user_id, token) VALUES ($1, $2) ON CONFLICT (user_id, token) DO NOTHING',
+      [userId, token]
+    );
+
+    res.json({ message: 'Token salvo com sucesso' });
+  } catch (error) {
+    console.error('Error saving push token:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};

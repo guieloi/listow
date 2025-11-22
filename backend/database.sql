@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS list_collaborators (
     UNIQUE(list_id, user_id)
 );
 
+-- User Push Tokens table (for notifications)
+CREATE TABLE IF NOT EXISTS user_push_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, token)
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
@@ -53,6 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_shopping_lists_owner ON shopping_lists(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shopping_items_list ON shopping_items(list_id);
 CREATE INDEX IF NOT EXISTS idx_list_collaborators_list ON list_collaborators(list_id);
 CREATE INDEX IF NOT EXISTS idx_list_collaborators_user ON list_collaborators(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_push_tokens_user ON user_push_tokens(user_id);
 
 -- Update trigger for updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()

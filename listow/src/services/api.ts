@@ -1,6 +1,8 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { ApiResponse, AuthResponse, User, ShoppingList, ShoppingItem, CreateListData, CreateItemData, UpdateItemData } from '../types';
+import syncService from './syncService';
 
 // CONFIGURAÇÃO DO BACKEND - PRODUÇÃO
 // Backend em produção hospedado em: https://app.grupoigl.online
@@ -107,20 +109,51 @@ class ApiService {
     });
   }
 
+  async savePushToken(token: string): Promise<void> {
+    await this.api.post('/auth/save-token', { token });
+  }
+
   // Shopping Lists endpoints
   async getLists(): Promise<ShoppingList[]> {
-    const response: AxiosResponse<ShoppingList[]> = await this.api.get('/lists');
-    return response.data;
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      const cached = await AsyncStorage.getItem('cached_lists');
+      return cached ? JSON.parse(cached) : [];
+    }
+
+    try {
+      const response: AxiosResponse<ShoppingList[]> = await this.api.get('/lists');
+      await AsyncStorage.setItem('cached_lists', JSON.stringify(response.data));
+      return response.data;
+    } catch (error) {
+      const cached = await AsyncStorage.getItem('cached_lists');
+      if (cached) return JSON.parse(cached);
+      throw error;
+    }
   }
 
   async createList(data: CreateListData): Promise<ShoppingList> {
-    const response: AxiosResponse<ShoppingList> = await this.api.post('/lists', data);
-    return response.data;
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      await syncService.saveAction('CREATE_LIST', data);
+      // Optimistic return
+      return {
+        id: Date.now(),
+        name: data.name,
+        description: data.description,
+        owner_id: 0,
+        is_shared: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        completed_items: 0,
+        total_items: 0
+      };
+    }
+    return (await this.api.post('/lists', data)).data;
   }
 
   async updateList(id: number, data: Partial<CreateListData>): Promise<ShoppingList> {
-    const response: AxiosResponse<ShoppingList> = await this.api.put(`/lists/${id}`, data);
-    return response.data;
+    return (await this.api.put(`/lists/${id}`, data)).data;
   }
 
   async deleteList(id: number): Promise<void> {
@@ -142,25 +175,83 @@ class ApiService {
 
   // Shopping Items endpoints
   async getItems(listId: number): Promise<ShoppingItem[]> {
-    const response: AxiosResponse<ShoppingItem[]> = await this.api.get(`/items/list/${listId}`);
-    return response.data;
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      const cached = await AsyncStorage.getItem(`cached_items_${listId}`);
+      return cached ? JSON.parse(cached) : [];
+    }
+
+    try {
+      const response: AxiosResponse<ShoppingItem[]> = await this.api.get(`/items/list/${listId}`);
+      await AsyncStorage.setItem(`cached_items_${listId}`, JSON.stringify(response.data));
+      return response.data;
+    } catch (error) {
+      const cached = await AsyncStorage.getItem(`cached_items_${listId}`);
+      if (cached) return JSON.parse(cached);
+      throw error;
+    }
   }
 
   async createItem(listId: number, data: CreateItemData): Promise<ShoppingItem> {
-    const response: AxiosResponse<ShoppingItem> = await this.api.post(`/items/list/${listId}`, data);
-    return response.data;
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      await syncService.saveAction('CREATE_ITEM', { listId, data });
+      return {
+        id: Date.now(),
+        list_id: listId,
+        name: data.name,
+        quantity: data.quantity || 1,
+        unit: data.unit,
+        price: data.price,
+        is_completed: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+    return (await this.api.post(`/items/list/${listId}`, data)).data;
   }
 
   async updateItem(id: number, data: UpdateItemData): Promise<ShoppingItem> {
-    const response: AxiosResponse<ShoppingItem> = await this.api.put(`/items/${id}`, data);
-    return response.data;
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      await syncService.saveAction('UPDATE_ITEM', { id, data });
+      return {
+        id,
+        list_id: 0,
+        name: data.name || '',
+        quantity: data.quantity || 1,
+        is_completed: data.is_completed || false,
+        created_at: '',
+        updated_at: new Date().toISOString(),
+        ...data
+      } as ShoppingItem;
+    }
+    return (await this.api.put(`/items/${id}`, data)).data;
   }
 
   async deleteItem(id: number): Promise<void> {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      await syncService.saveAction('DELETE_ITEM', { id });
+      return;
+    }
     await this.api.delete(`/items/${id}`);
   }
 
   async toggleItem(id: number): Promise<ShoppingItem> {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      await syncService.saveAction('TOGGLE_ITEM', { id });
+      return {
+        id,
+        list_id: 0,
+        name: '',
+        quantity: 0,
+        is_completed: true,
+        created_at: '',
+        updated_at: new Date().toISOString()
+      } as ShoppingItem;
+    }
     const response: AxiosResponse<ShoppingItem> = await this.api.patch(`/items/${id}/toggle`);
     return response.data;
   }
@@ -180,4 +271,7 @@ class ApiService {
   }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+syncService.setApi(apiService);
+
+export default apiService;

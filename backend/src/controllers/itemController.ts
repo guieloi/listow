@@ -5,7 +5,7 @@ import { ShoppingItem, CreateItemData, UpdateItemData } from '../models/Shopping
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -33,7 +33,7 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
 export const createItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -59,6 +59,45 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
     // Update list's updated_at timestamp
     await pool.query('UPDATE shopping_lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
 
+    // Send Push Notification to collaborators
+    try {
+      // 1. Get list name and owner/collaborators
+      const listInfo = await pool.query(`
+        SELECT l.name, l.owner_id, 
+               array_agg(c.user_id) as collaborator_ids
+        FROM shopping_lists l
+        LEFT JOIN list_collaborators c ON l.id = c.list_id
+        WHERE l.id = $1
+        GROUP BY l.id
+      `, [listId]);
+
+      if (listInfo.rows.length > 0) {
+        const { name: listName, owner_id, collaborator_ids } = listInfo.rows[0];
+
+        // Combine owner and collaborators
+        const recipients = new Set<number>();
+        if (owner_id !== userId) recipients.add(owner_id);
+        if (collaborator_ids && collaborator_ids[0] !== null) {
+          collaborator_ids.forEach((id: number) => {
+            if (id !== userId) recipients.add(id);
+          });
+        }
+
+        if (recipients.size > 0) {
+          const { sendPushNotification } = require('../services/notificationService');
+          // Don't await this to avoid blocking the response
+          sendPushNotification(
+            Array.from(recipients),
+            'Novo item na lista!',
+            `"${name.trim()}" foi adicionado à lista "${listName}"`,
+            { listId, itemId: result.rows[0].id }
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error('Error sending notification:', notifError);
+    }
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating item:', error);
@@ -69,7 +108,7 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
 export const updateItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -150,7 +189,7 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
 export const deleteItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -193,7 +232,7 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
 export const toggleItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;

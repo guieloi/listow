@@ -27,11 +27,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
+        registerForPushNotifications();
       }
     } catch (error) {
       console.error('Error checking auth state:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const registerForPushNotifications = async () => {
+    try {
+      const { registerForPushNotificationsAsync } = require('../utils/notifications');
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await apiService.savePushToken(token);
+      }
+    } catch (error) {
+      console.log('Error registering push token:', error);
     }
   };
 
@@ -46,14 +59,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Salvar no AsyncStorage
       await AsyncStorage.setItem('auth_token', response.token);
       await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+
+      registerForPushNotifications();
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       let message = 'Erro ao fazer login';
-      
+
       if (error.response?.data?.error) {
         message = error.response.data.error;
-        
+
         // Adicionar informação sobre existência do usuário se disponível
         if (error.response.data.userExists !== undefined) {
           if (!error.response.data.userExists) {
@@ -63,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
       }
-      
+
       throw new Error(message);
     } finally {
       setIsLoading(false);
@@ -81,6 +96,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Salvar no AsyncStorage
       await AsyncStorage.setItem('auth_token', response.token);
       await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+
+      registerForPushNotifications();
     } catch (error: any) {
       console.error('Register error:', error);
       const message = error.response?.data?.error || 'Erro ao criar conta';
