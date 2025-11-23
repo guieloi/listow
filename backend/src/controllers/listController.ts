@@ -111,11 +111,17 @@ export const updateList = async (req: Request, res: Response): Promise<void> => 
 
     // Check if user owns the list or has write permission
     const accessCheck = await pool.query(`
-      SELECT l.owner_id, lc.permission
+      SELECT 
+        l.owner_id, 
+        lc.permission,
+        CASE WHEN l.owner_id = $2 THEN true ELSE false END as is_owner
       FROM shopping_lists l
       LEFT JOIN list_collaborators lc ON l.id = lc.list_id AND lc.user_id = $2
-      WHERE l.id = $1 AND (l.owner_id = $2 OR lc.permission = 'write')
+      WHERE l.id = $1 
+        AND (l.owner_id = $2 OR lc.permission = 'write')
     `, [listId, userId]);
+
+    console.log('🔍 Access check result:', accessCheck.rows);
 
     if (accessCheck.rows.length === 0) {
       console.log('❌ Access denied: User', userId, 'does not have access to list', listId);
@@ -125,7 +131,8 @@ export const updateList = async (req: Request, res: Response): Promise<void> => 
 
     const ownerId = accessCheck.rows[0].owner_id;
     const permission = accessCheck.rows[0].permission;
-    console.log('✅ Access granted:', { ownerId, permission, userId });
+    const isOwner = accessCheck.rows[0].is_owner;
+    console.log('✅ Access granted:', { ownerId, permission, userId, isOwner });
 
     const updates: string[] = [];
     const values: any[] = [];
