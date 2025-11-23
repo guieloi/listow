@@ -30,10 +30,52 @@ if docker ps | grep -q "listow-postgres"; then
     docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
 fi
 
+# Preservar arquivo .env se existir
+if [ -f .env ]; then
+    echo "💾 Preservando arquivo .env..."
+    cp .env .env.backup
+fi
+
 # Atualizar código
 echo "📥 Atualizando código..."
 git fetch origin
 git reset --hard origin/main
+
+# Restaurar arquivo .env se existir backup
+if [ -f .env.backup ]; then
+    echo "🔄 Restaurando arquivo .env..."
+    mv .env.backup .env
+fi
+
+# Verificar se .env existe, se não, criar a partir do exemplo
+if [ ! -f .env ]; then
+    echo "⚠️ Arquivo .env não encontrado!"
+    if [ -f .env.example ]; then
+        echo "📝 Criando .env a partir do .env.example..."
+        cp .env.example .env
+        echo "⚠️ IMPORTANTE: Edite o arquivo .env com as configurações corretas antes de continuar!"
+        echo "   Execute: nano .env"
+        exit 1
+    else
+        echo "❌ Arquivo .env.example não encontrado. Criando .env básico..."
+        cat > .env << EOF
+# Configurações do Banco de Dados PostgreSQL
+POSTGRES_DB=listow_db
+POSTGRES_USER=listow_user
+POSTGRES_PASSWORD=ALTERE_AQUI
+
+# Configurações do Backend
+JWT_SECRET=ALTERE_AQUI_GERE_UMA_CHAVE_SEGURA
+GOOGLE_CLIENT_ID=380197742222-fgno8bchna4atrghfjrqp38kluhnuoag.apps.googleusercontent.com
+
+# Porta do Backend
+PORT=8085
+EOF
+        echo "⚠️ IMPORTANTE: Edite o arquivo .env com as configurações corretas antes de continuar!"
+        echo "   Execute: nano .env"
+        exit 1
+    fi
+fi
 
 # Construir e iniciar containers (Forçando rebuild para garantir npm install)
 echo "🔨 Construindo e iniciando containers..."
