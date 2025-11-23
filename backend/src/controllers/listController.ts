@@ -92,74 +92,122 @@ export const createList = async (req: Request, res: Response): Promise<void> => 
 
 export const updateList = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📝 UPDATE LIST REQUEST RECEIVED');
+    console.log('═══════════════════════════════════════════════════════');
+    
     const userId = req.user?.userId;
+    console.log('👤 User from token:', userId, 'Type:', typeof userId);
     
     if (!userId) {
+      console.log('❌ No userId found in request');
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
     }
     
     const listId = parseInt(req.params.id);
     const { name, description }: UpdateListData = req.body;
+    
+    console.log('📋 Request params:', { listId, name, description });
+    console.log('📋 Parsed listId:', listId, 'isNaN:', isNaN(listId));
 
     if (!listId || isNaN(listId)) {
+      console.log('❌ Invalid listId');
       res.status(400).json({ error: 'ID da lista inválido' });
       return;
     }
 
-    console.log('🔍 Updating list:', { listId, userId, userIdType: typeof userId });
+    // First, check if list exists
+    console.log('🔍 Step 1: Checking if list exists...');
+    const listExists = await pool.query(
+      'SELECT id, owner_id, name FROM shopping_lists WHERE id = $1',
+      [listId]
+    );
+    console.log('📋 List exists check:', listExists.rows);
 
-    // Check if user owns the list or has write permission
-    const accessCheck = await pool.query(`
-      SELECT 
-        l.owner_id, 
-        lc.permission,
-        CASE WHEN l.owner_id = $2 THEN true ELSE false END as is_owner
-      FROM shopping_lists l
-      LEFT JOIN list_collaborators lc ON l.id = lc.list_id AND lc.user_id = $2
-      WHERE l.id = $1 
-        AND (l.owner_id = $2 OR lc.permission = 'write')
-    `, [listId, userId]);
+    if (listExists.rows.length === 0) {
+      console.log('❌ List not found');
+      res.status(404).json({ error: 'Lista não encontrada' });
+      return;
+    }
 
-    console.log('🔍 Access check result:', accessCheck.rows);
+    const ownerId = listExists.rows[0].owner_id;
+    console.log('👑 List owner_id:', ownerId, 'Type:', typeof ownerId);
+    console.log('👤 Current userId:', userId, 'Type:', typeof userId);
+    
+    // Check if user is owner
+    const userIdNum = Number(userId);
+    const ownerIdNum = Number(ownerId);
+    const isOwner = userIdNum === ownerIdNum;
+    console.log('🔍 Is owner check:', { userIdNum, ownerIdNum, isOwner });
 
-    if (accessCheck.rows.length === 0) {
-      console.log('❌ Access denied: User', userId, 'does not have access to list', listId);
+    // Check collaborator permissions
+    console.log('🔍 Step 2: Checking collaborator permissions...');
+    const collaboratorCheck = await pool.query(
+      'SELECT permission FROM list_collaborators WHERE list_id = $1 AND user_id = $2',
+      [listId, userId]
+    );
+    console.log('📋 Collaborator check:', collaboratorCheck.rows);
+
+    const hasWritePermission = collaboratorCheck.rows.length > 0 && 
+                               collaboratorCheck.rows[0].permission === 'write';
+    console.log('✍️ Has write permission:', hasWritePermission);
+
+    // Final access check
+    if (!isOwner && !hasWritePermission) {
+      console.log('❌ ACCESS DENIED - User is neither owner nor has write permission');
+      console.log('   Owner check:', isOwner);
+      console.log('   Write permission check:', hasWritePermission);
       res.status(403).json({ error: 'Acesso negado. Apenas o dono ou colaboradores com permissão de escrita podem editar a lista.' });
       return;
     }
 
-    const ownerId = accessCheck.rows[0].owner_id;
-    const permission = accessCheck.rows[0].permission;
-    const isOwner = accessCheck.rows[0].is_owner;
-    console.log('✅ Access granted:', { ownerId, permission, userId, isOwner });
+    console.log('✅ ACCESS GRANTED - User can edit list');
+    console.log('   Is owner:', isOwner);
+    console.log('   Has write permission:', hasWritePermission);
 
+    console.log('🔍 Step 3: Building update query...');
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
 
     if (name !== undefined) {
+      console.log('📝 Updating name to:', name.trim());
       updates.push(`name = $${paramCount++}`);
       values.push(name.trim());
     }
 
     if (description !== undefined) {
+      console.log('📝 Updating description to:', description?.trim() || null);
       updates.push(`description = $${paramCount++}`);
       values.push(description?.trim() || null);
     }
 
     if (updates.length === 0) {
+      console.log('❌ No fields to update');
       res.status(400).json({ error: 'Nenhum campo para atualizar' });
       return;
     }
 
     values.push(listId);
     const query = `UPDATE shopping_lists SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    console.log('📝 Update query:', query);
+    console.log('📝 Query values:', values);
 
+    console.log('🔍 Step 4: Executing update query...');
     const result = await pool.query(query, values);
+    console.log('✅ Update successful! Result:', result.rows[0]);
+    
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('✅ UPDATE LIST COMPLETED SUCCESSFULLY');
+    console.log('═══════════════════════════════════════════════════════');
+    
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating list:', error);
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ ERROR UPDATING LIST:');
+    console.error(error);
+    console.error('═══════════════════════════════════════════════════════');
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
