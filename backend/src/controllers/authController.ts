@@ -15,7 +15,7 @@ const googleClient = process.env.GOOGLE_CLIENT_ID
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('📝 Register attempt from:', req.ip, 'with data:', { name: req.body.name, email: req.body.email });
+    console.log('📝 Register   attempt from :', req.ip, 'with data:', { name: req.body.name, email: req.body.email });
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
