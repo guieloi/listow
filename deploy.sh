@@ -5,6 +5,9 @@
 
 echo "🚀 Iniciando deploy do Listow..."
 
+# Parar execução se houver erro
+set -e
+
 # Verificar se Docker está instalado
 if ! command -v docker &> /dev/null; then
     echo "❌ Docker não encontrado. Instalando..."
@@ -27,18 +30,14 @@ if docker ps | grep -q "listow-postgres"; then
     docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
 fi
 
-# Parar containers existentes (COMENTADO para evitar reiniciar o banco desnecessariamente)
-# O docker-compose up -d --build já vai recriar apenas o que mudou (backend)
-# echo "🛑 Parando containers existentes..."
-# docker-compose down
-
 # Atualizar código
 echo "📥 Atualizando código..."
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 
 # Construir e iniciar containers
 echo "🔨 Construindo e iniciando containers..."
-docker-compose up -d --build
+docker-compose up -d --build --force-recreate
 
 # Aguardar containers iniciarem
 echo "⏳ Aguardando containers iniciarem..."
