@@ -92,7 +92,13 @@ export const createList = async (req: Request, res: Response): Promise<void> => 
 
 export const updateList = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+    
     const listId = parseInt(req.params.id);
     const { name, description }: UpdateListData = req.body;
 
@@ -101,21 +107,25 @@ export const updateList = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Check if user owns the list
-    const listCheck = await pool.query(
-      'SELECT owner_id FROM shopping_lists WHERE id = $1',
-      [listId]
-    );
+    console.log('🔍 Updating list:', { listId, userId, userIdType: typeof userId });
 
-    if (listCheck.rows.length === 0) {
-      res.status(404).json({ error: 'Lista não encontrada' });
+    // Check if user owns the list or has write permission
+    const accessCheck = await pool.query(`
+      SELECT l.owner_id, lc.permission
+      FROM shopping_lists l
+      LEFT JOIN list_collaborators lc ON l.id = lc.list_id AND lc.user_id = $2
+      WHERE l.id = $1 AND (l.owner_id = $2 OR lc.permission = 'write')
+    `, [listId, userId]);
+
+    if (accessCheck.rows.length === 0) {
+      console.log('❌ Access denied: User', userId, 'does not have access to list', listId);
+      res.status(403).json({ error: 'Acesso negado. Apenas o dono ou colaboradores com permissão de escrita podem editar a lista.' });
       return;
     }
 
-    if (listCheck.rows[0].owner_id !== userId) {
-      res.status(403).json({ error: 'Acesso negado' });
-      return;
-    }
+    const ownerId = accessCheck.rows[0].owner_id;
+    const permission = accessCheck.rows[0].permission;
+    console.log('✅ Access granted:', { ownerId, permission, userId });
 
     const updates: string[] = [];
     const values: any[] = [];
@@ -149,7 +159,13 @@ export const updateList = async (req: Request, res: Response): Promise<void> => 
 
 export const deleteList = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+    
     const listId = parseInt(req.params.id);
 
     if (!listId || isNaN(listId)) {
@@ -168,7 +184,11 @@ export const deleteList = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (listCheck.rows[0].owner_id !== userId) {
+    // Convert both to numbers for comparison
+    const ownerId = parseInt(listCheck.rows[0].owner_id);
+    const userIdNum = parseInt(userId.toString());
+    
+    if (ownerId !== userIdNum) {
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }

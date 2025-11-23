@@ -68,6 +68,17 @@ class ApiService {
     return response.data;
   }
 
+  async loginWithGoogle(googleToken: string, googleId: string, email: string, name: string, photoUrl?: string): Promise<AuthResponse> {
+    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/google', {
+      googleToken,
+      googleId,
+      email,
+      name,
+      photoUrl,
+    });
+    return response.data;
+  }
+
   async getProfile(): Promise<User> {
     const response: AxiosResponse<{ user: User }> = await this.api.get('/auth/profile');
     return response.data.user;

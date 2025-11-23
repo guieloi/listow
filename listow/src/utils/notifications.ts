@@ -4,63 +4,72 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // Only set notification handler if not running in Expo Go
-if (!Constants.appOwnership || Constants.appOwnership !== 'expo') {
-    Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: false,
-            shouldShowBanner: true,
-            shouldShowList: true,
-        }),
-    });
+try {
+    if (!Constants.appOwnership || Constants.appOwnership !== 'expo') {
+        Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+                shouldShowAlert: true,
+                shouldPlaySound: true,
+                shouldSetBadge: false,
+                shouldShowBanner: true,
+                shouldShowList: true,
+            }),
+        });
+    }
+} catch (error) {
+    // Silently ignore notification setup errors
+    console.debug('Notification handler setup skipped:', error);
 }
 
 export async function registerForPushNotificationsAsync() {
-    // Skip if running in Expo Go (notifications not supported)
-    if (Constants.appOwnership === 'expo') {
-        console.log('Push notifications not available in Expo Go. Use a development build instead.');
-        return null;
-    }
-
-    let token;
-
-    if (Platform.OS === 'android') {
-        try {
-            await Notifications.setNotificationChannelAsync('default', {
-                name: 'default',
-                importance: Notifications.AndroidImportance.MAX,
-                vibrationPattern: [0, 250, 250, 250],
-                lightColor: '#FF231F7C',
-            });
-        } catch (error) {
-            console.error('Error setting notification channel:', error);
+    try {
+        // Skip if running in Expo Go (notifications not supported)
+        if (Constants.appOwnership === 'expo') {
+            return null;
         }
-    }
 
-    if (Device.isDevice) {
-        try {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
+        let token;
+
+        if (Platform.OS === 'android') {
+            try {
+                await Notifications.setNotificationChannelAsync('default', {
+                    name: 'default',
+                    importance: Notifications.AndroidImportance.MAX,
+                    vibrationPattern: [0, 250, 250, 250],
+                    lightColor: '#FF231F7C',
+                });
+            } catch (error) {
+                // Silently handle channel setup errors
+                console.debug('Notification channel setup skipped:', error);
             }
-            if (finalStatus !== 'granted') {
-                console.log('Failed to get push token for push notification!');
+        }
+
+        if (Device.isDevice) {
+            try {
+                const { status: existingStatus } = await Notifications.getPermissionsAsync();
+                let finalStatus = existingStatus;
+                if (existingStatus !== 'granted') {
+                    const { status } = await Notifications.requestPermissionsAsync();
+                    finalStatus = status;
+                }
+                if (finalStatus !== 'granted') {
+                    return null;
+                }
+
+                // Get the token using the projectId from app.json/eas.json if available
+                const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
+                token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            } catch (e) {
+                // Silently handle token errors
+                console.debug('Push token error:', e);
                 return null;
             }
-
-            // Get the token using the projectId from app.json/eas.json if available
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-            console.log('Push Token:', token);
-        } catch (e) {
-            console.error('Error getting push token:', e);
         }
-    } else {
-        console.log('Must use physical device for Push Notifications');
-    }
 
-    return token;
+        return token;
+    } catch (error) {
+        // Silently handle all notification errors
+        console.debug('Notification registration error:', error);
+        return null;
+    }
 }

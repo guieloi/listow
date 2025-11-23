@@ -11,7 +11,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 // Utility function to safely format price
 const formatPrice = (price: any): string => {
@@ -38,7 +38,8 @@ const formatPriceForInput = (price: number): string => {
 const validateItem = (item: any): ShoppingItem => ({
   ...item,
   name: item.name || 'Item sem nome',
-  quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity) || 1,
+  quantity: item.quantity !== null && item.quantity !== undefined && item.quantity !== '' ?
+    (typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity)) : null,
   price: item.price !== null && item.price !== undefined && item.price !== '' ?
     (typeof item.price === 'number' ? item.price : parseFloat(item.price)) : undefined,
   is_completed: Boolean(item.is_completed)
@@ -81,6 +82,7 @@ const ListDetailsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [newItemText, setNewItemText] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [editName, setEditName] = useState('');
@@ -100,7 +102,7 @@ const ListDetailsScreen: React.FC = () => {
           onPress={handleShareList}
           style={{ marginRight: 15 }}
         >
-          <MaterialIcons name="people" size={24} color="#3498db" />
+          <MaterialIcons name="groups" size={24} color="#3498db" />
         </TouchableOpacity>
       ),
     });
@@ -154,6 +156,51 @@ const ListDetailsScreen: React.FC = () => {
       });
 
       setNewItemText('');
+      setSuggestions([]);
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao adicionar item');
+    }
+  };
+
+  const handleTextChange = (text: string) => {
+    setNewItemText(text);
+    
+    // Buscar sugestões baseado nos itens da lista atual
+    if (text.trim().length > 0) {
+      const searchTerm = text.trim().toLowerCase();
+      // Obter nomes únicos dos itens que contêm o termo de busca
+      const uniqueNames = Array.from(
+        new Set(
+          items
+            .map(item => item.name)
+            .filter(name => name && name.toLowerCase().includes(searchTerm))
+        )
+      );
+      // Limitar a 5 sugestões
+      setSuggestions(uniqueNames.slice(0, 5));
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = async (suggestion: string) => {
+    if (!suggestion.trim()) {
+      return;
+    }
+
+    try {
+      const newItem = await apiService.createItem(listId, {
+        name: suggestion.trim(),
+      });
+
+      // Add new item and reorder the list
+      setItems(prev => {
+        const updatedItems = [...prev, newItem];
+        return sortItems(updatedItems);
+      });
+
+      setNewItemText('');
+      setSuggestions([]);
     } catch (error: any) {
       Alert.alert('Erro', 'Erro ao adicionar item');
     }
@@ -176,7 +223,7 @@ const ListDetailsScreen: React.FC = () => {
   const handleEditItem = (item: ShoppingItem) => {
     setEditingItem(item);
     setEditName(item.name || '');
-    setEditQuantity((item.quantity || 1).toString());
+    setEditQuantity(item.quantity ? item.quantity.toString() : '');
     setEditPrice(item.price && item.price > 0 ? formatPriceForInput(item.price) : '');
     setShowEditModal(true);
   };
@@ -189,10 +236,21 @@ const ListDetailsScreen: React.FC = () => {
 
     console.log('Saving edit with values:', { editName, editQuantity, editPrice });
 
-    const quantity = parseFloat(editQuantity);
-    let price: number | null = null; // Usar null explicitamente para limpar preço
+    let quantity: number | null = null;
+    let price: number | null = null;
 
-    // Melhor validação para o preço
+    // Processar quantidade - aceita nula/vazia
+    if (editQuantity.trim()) {
+      const parsedQuantity = parseFloat(editQuantity);
+      if (!isNaN(parsedQuantity) && parsedQuantity > 0) {
+        quantity = parsedQuantity;
+      } else {
+        Alert.alert('Erro', 'Quantidade deve ser um número válido maior que zero');
+        return;
+      }
+    }
+
+    // Processar preço - aceita nulo/vazio
     if (editPrice.trim()) {
       const parsedPrice = parsePriceInput(editPrice);
       if (parsedPrice > 0) {
@@ -203,20 +261,21 @@ const ListDetailsScreen: React.FC = () => {
       }
     }
 
-    if (isNaN(quantity) || quantity <= 0) {
-      Alert.alert('Erro', 'Quantidade deve ser um número maior que zero');
-      return;
-    }
-
     console.log('Parsed values:', { quantity, price });
 
     try {
       const updateData: any = {
         name: editName.trim(),
-        quantity: quantity,
       };
 
-      // Sempre incluir o preço, mesmo que seja undefined ou null
+      // Incluir quantidade apenas se fornecida
+      if (quantity !== null) {
+        updateData.quantity = quantity;
+      } else {
+        updateData.quantity = null;
+      }
+
+      // Incluir preço apenas se fornecido
       updateData.price = price;
 
       console.log('Sending update data:', updateData);
@@ -329,39 +388,37 @@ const ListDetailsScreen: React.FC = () => {
         delayLongPress={500}
         activeOpacity={0.7}
       >
-        {/* Checkbox à esquerda */}
-        <TouchableOpacity
-          style={styles.checkboxContainer}
-          onPress={handleCheckboxPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.checkboxText}>
-            {item.is_completed ? '☑' : '☐'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Conteúdo principal */}
-        <View style={styles.itemContent}>
-          <View style={styles.itemHeader}>
+        <View style={[styles.itemContentWrapper, isLongPressed && styles.itemContentWrapperPressed]}>
+          {/* Checkbox, nome, quantidade e preço na mesma linha */}
+          <View style={styles.itemTopRow}>
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={handleCheckboxPress}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.checkboxText}>
+                {item.is_completed ? '☑' : '☐'}
+              </Text>
+            </TouchableOpacity>
             <Text style={[styles.itemName, item.is_completed && styles.itemTextCompleted]}>
               {item.name || 'Item sem nome'}
             </Text>
-            {/* Detalhes do item (quantidade e preço) na mesma linha */}
+            {/* Quantidade e preço na mesma linha */}
             {(item.quantity && item.quantity > 0) || (item.price && item.price > 0) ? (
               <View style={styles.itemDetailsInline}>
-                {item.quantity && item.quantity > 0 ? (
+                {item.quantity && item.quantity > 0 && (
                   <Text style={styles.detailTextInline}>
                     {item.quantity} {item.unit || 'un'}
                   </Text>
-                ) : null}
+                )}
                 {item.quantity && item.quantity > 0 && item.price && item.price > 0 && (
                   <Text style={styles.detailSeparator}> • </Text>
                 )}
-                {item.price && item.price > 0 ? (
+                {item.price && item.price > 0 && (
                   <Text style={styles.detailTextInline}>
                     {formatPrice(item.price)}
                   </Text>
-                ) : null}
+                )}
               </View>
             ) : null}
           </View>
@@ -376,8 +433,9 @@ const ListDetailsScreen: React.FC = () => {
                 setLongPressedItemId(null);
                 handleEditItem(item);
               }}
+              activeOpacity={0.7}
             >
-              <MaterialIcons name="edit" size={20} color="#f39c12" />
+              <MaterialIcons name="edit" size={24} color="#f39c12" />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
@@ -385,8 +443,9 @@ const ListDetailsScreen: React.FC = () => {
                 setLongPressedItemId(null);
                 handleDeleteItem(item);
               }}
+              activeOpacity={0.7}
             >
-              <MaterialIcons name="delete" size={20} color="#e74c3c" />
+              <MaterialIcons name="delete" size={24} color="#e74c3c" />
             </TouchableOpacity>
           </View>
         )}
@@ -416,16 +475,40 @@ const ListDetailsScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Quick Add Input */}
       <View style={styles.addContainer}>
-        <TextInput
-          style={styles.addInput}
-          placeholder="Adicionar item..."
-          value={newItemText}
-          onChangeText={setNewItemText}
-          onSubmitEditing={handleAddItem}
-          returnKeyType="next"
-          blurOnSubmit={false}
-          autoFocus={true}
-        />
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.addInput}
+            placeholder="Adicionar item..."
+            value={newItemText}
+            onChangeText={handleTextChange}
+            onSubmitEditing={handleAddItem}
+            onBlur={() => {
+              // Delay para permitir o clique nas sugestões antes de fechar
+              setTimeout(() => setSuggestions([]), 200);
+            }}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            autoFocus={true}
+          />
+          {/* Sugestões */}
+          {suggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              {suggestions.map((suggestion, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.suggestionItem,
+                    index === suggestions.length - 1 && styles.suggestionItemLast
+                  ]}
+                  onPress={() => handleSelectSuggestion(suggestion)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           style={[styles.addButton, !newItemText.trim() && styles.addButtonDisabled]}
           onPress={handleAddItem}
@@ -546,10 +629,10 @@ const ListDetailsScreen: React.FC = () => {
               onChangeText={setEditName}
             />
 
-            <Text style={styles.inputLabel}>Quantidade:</Text>
+            <Text style={styles.inputLabel}>Quantidade (opcional):</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Digite a quantidade"
+              placeholder="Digite a quantidade (deixe vazio para não exibir)"
               value={editQuantity}
               onChangeText={setEditQuantity}
               keyboardType="numeric"
@@ -608,14 +691,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e1e8ed',
   },
-  addInput: {
+  inputWrapper: {
     flex: 1,
+    marginRight: 10,
+    position: 'relative',
+  },
+  addInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginRight: 10,
     fontSize: 16,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionItemLast: {
+    borderBottomWidth: 0,
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#2c3e50',
   },
   addButton: {
     backgroundColor: '#27ae60',
@@ -653,54 +769,75 @@ const styles = StyleSheet.create({
   itemContainer: {
     backgroundColor: '#ffffff',
     marginHorizontal: 15,
-    marginVertical: 4,
+    marginVertical: 2,
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 2, // Espaço inferior do card
+    paddingHorizontal: 8,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    minHeight: 50, // Garante altura mínima para toque
   },
   itemCompleted: {
     backgroundColor: '#f8f9fa',
     opacity: 0.7,
   },
   checkboxContainer: {
-    marginRight: 12,
-    padding: 12,
+    marginRight: 8,
+    padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 44,
-    minHeight: 44,
+    width: 40, // Largura fixa para alinhamento
+    borderWidth: 1,
+    borderColor: '#d3d3d3',
+    borderRadius: 4,
   },
   checkboxText: {
-    fontSize: 32,
-    color: '#3498db',
+    fontSize: 36, // Aumentado
+    color: '#bdc3c7',
+    lineHeight: 38, // Ajuste de altura de linha para centralizar ícone
   },
-  itemContent: {
+  itemContentWrapper: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 50,
+    minWidth: 0, // Permite que o conteúdo encolha quando necessário
   },
-  itemHeader: {
+  itemContentWrapperPressed: {
     flex: 1,
+    minWidth: 0,
+  },
+  itemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
   },
   itemName: {
     fontSize: 16,
     fontWeight: '500',
     color: '#2c3e50',
-    marginBottom: 2,
+    flex: 1,
+    lineHeight: 21, // Altura de linha ajustada para fonte maior
+    marginRight: 8,
+    minWidth: 0,
   },
   itemDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    flexShrink: 0,
   },
   detailTextInline: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#7f8c8d',
+    lineHeight: 16,
   },
   detailSeparator: {
     fontSize: 12,
@@ -713,14 +850,21 @@ const styles = StyleSheet.create({
   },
   itemActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
+    alignItems: 'stretch',
+    marginLeft: 6,
+    alignSelf: 'stretch',
+    width: 100, // Largura fixa para não aumentar o card
+    flexShrink: 0, // Não encolhe
   },
   actionButton: {
-    padding: 8,
-    marginLeft: 8,
+    paddingHorizontal: 10,
+    marginLeft: 6,
     borderRadius: 4,
     backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+    alignSelf: 'stretch',
   },
   emptyContainer: {
     alignItems: 'center',

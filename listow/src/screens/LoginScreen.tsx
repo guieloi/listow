@@ -9,18 +9,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types';
+import { signInWithGoogle } from '../services/googleAuth';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading } = useAuth();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { login, loginWithGoogle, isLoading } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
 
   const handleLogin = async () => {
@@ -34,6 +38,19 @@ const LoginScreen: React.FC = () => {
       // Navigation will be handled by the auth state change
     } catch (error: any) {
       Alert.alert('Erro', error.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const googleData = await signInWithGoogle();
+      await loginWithGoogle(googleData);
+      // Navigation will be handled by the auth state change
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Erro ao fazer login com Google');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -89,6 +106,29 @@ const LoginScreen: React.FC = () => {
             <Text style={styles.linkText}>
               Não tem conta? Criar conta
             </Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OU</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.googleButton, (isLoading || isGoogleLoading) && styles.buttonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={isLoading || isGoogleLoading}
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <MaterialIcons name="account-circle" size={20} color="#ffffff" />
+                <Text style={styles.googleButtonText}>
+                  Entrar com Google
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -155,6 +195,35 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#3498db',
     fontSize: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    color: '#7f8c8d',
+    fontSize: 14,
+  },
+  googleButton: {
+    backgroundColor: '#db4437',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  googleButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

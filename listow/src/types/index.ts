@@ -46,7 +46,7 @@ export interface ShoppingItem {
   id: number;
   list_id: number;
   name: string;
-  quantity: number;
+  quantity: number | null;
   unit?: string;
   price?: number;
   is_completed: boolean;
@@ -107,6 +107,16 @@ export interface AuthContextType {
   isLoading: boolean;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  loginWithGoogle: (googleData: {
+    accessToken: string;
+    idToken: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      photo?: string;
+    };
+  }) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }

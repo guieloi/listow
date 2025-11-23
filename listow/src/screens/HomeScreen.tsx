@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 import { RootStackParamList, ShoppingList } from '../types';
@@ -28,6 +29,12 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [longPressedListId, setLongPressedListId] = useState<number | null>(null);
+  
+  // Edit List Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingList, setEditingList] = useState<ShoppingList | null>(null);
+  const [editListName, setEditListName] = useState('');
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -47,6 +54,19 @@ const HomeScreen: React.FC = () => {
       setProfileName(user.name);
     }
   }, [user]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => setShowProfileModal(true)}
+          style={{ marginRight: 15 }}
+        >
+          <MaterialIcons name="account-circle" size={28} color="#ffffff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const fetchLists = async () => {
     try {
@@ -105,10 +125,52 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleListPress = (list: ShoppingList) => {
+    // Se a lista está sendo pressionada, apenas fecha os botões
+    if (longPressedListId === list.id) {
+      setLongPressedListId(null);
+      return;
+    }
     navigation.navigate('ListDetails', { listId: list.id, listName: list.name });
   };
 
+  const handleLongPressList = (list: ShoppingList) => {
+    setLongPressedListId(list.id);
+  };
+
+  const handleEditList = (list: ShoppingList) => {
+    setEditingList(list);
+    setEditListName(list.name);
+    setShowEditModal(true);
+    setLongPressedListId(null);
+  };
+
+  const handleEditListSubmit = async () => {
+    if (!editingList || !editListName.trim()) {
+      Alert.alert('Erro', 'Digite um nome para a lista');
+      return;
+    }
+
+    try {
+      const updatedList = await apiService.updateList(editingList.id, { name: editListName.trim() });
+      setLists(prev => prev.map(l => l.id === editingList.id ? updatedList : l));
+      setShowEditModal(false);
+      setEditingList(null);
+      setEditListName('');
+      Alert.alert('Sucesso', 'Lista atualizada com sucesso!');
+    } catch (error: any) {
+      console.error('Error updating list:', error);
+      Alert.alert('Erro', `Erro ao editar lista: ${error.message || 'Erro desconhecido'}`);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingList(null);
+    setEditListName('');
+  };
+
   const handleDeleteList = (list: ShoppingList) => {
+    setLongPressedListId(null);
     Alert.alert(
       'Excluir Lista',
       `Deseja realmente excluir "${list.name}"?`,
@@ -216,38 +278,66 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const renderListItem = ({ item }: { item: ShoppingList }) => (
-    <TouchableOpacity
-      style={styles.listItem}
-      onPress={() => handleListPress(item)}
-      onLongPress={() => handleDeleteList(item)}
-    >
-      <View style={styles.listContent}>
-        <Text style={styles.listName}>{item.name}</Text>
-        {item.description && (
-          <Text style={styles.listDescription}>{item.description}</Text>
+  const renderListItem = ({ item }: { item: ShoppingList }) => {
+    const isLongPressed = longPressedListId === item.id;
+
+    return (
+      <TouchableOpacity
+        style={styles.listItem}
+        onPress={() => handleListPress(item)}
+        onLongPress={() => handleLongPressList(item)}
+        delayLongPress={500}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.listContentWrapper, isLongPressed && styles.listContentWrapperPressed]}>
+          <View style={styles.listContent}>
+            <Text style={styles.listName}>{item.name}</Text>
+            {item.description && (
+              <Text style={styles.listDescription}>{item.description}</Text>
+            )}
+            <Text style={styles.listMeta}>
+              {item.completed_items || 0}/{item.total_items || 0} •
+              {item.is_shared ? ' Compartilhada' : ' Privada'}
+            </Text>
+          </View>
+          <View style={styles.listActions}>
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={() => navigation.navigate('ShareList', {
+                listId: item.id,
+                listName: item.name,
+                isOwner: item.is_owner,
+                userRole: item.user_role,
+                ownerId: item.owner_id
+              })}
+            >
+              <MaterialIcons name="groups" size={18} color="#3498db" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Botões de ação quando pressionado */}
+        {isLongPressed && (
+          <View style={styles.listActionButtons}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleEditList(item)}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="edit" size={24} color="#f39c12" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleDeleteList(item)}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="delete" size={24} color="#e74c3c" />
+            </TouchableOpacity>
+          </View>
         )}
-        <Text style={styles.listMeta}>
-          {item.completed_items || 0}/{item.total_items || 0} •
-          {item.is_shared ? ' Compartilhada' : ' Privada'}
-        </Text>
-      </View>
-      <View style={styles.listActions}>
-        <TouchableOpacity
-          style={styles.shareButton}
-          onPress={() => navigation.navigate('ShareList', {
-            listId: item.id,
-            listName: item.name,
-            isOwner: item.is_owner,
-            userRole: item.user_role,
-            ownerId: item.owner_id
-          })}
-        >
-          <Text style={styles.shareButtonText}>↗</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -265,16 +355,6 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.welcomeText}>Olá, {user?.name}!</Text>
           <Text style={styles.subtitleText}>Suas listas de compras</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={() => setShowProfileModal(true)}
-        >
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </Text>
-          </View>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.listsHeader}>
@@ -333,6 +413,41 @@ const HomeScreen: React.FC = () => {
                 onPress={handleCreateListSubmit}
               >
                 <Text style={styles.createButtonText}>Criar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para editar lista */}
+      <Modal
+        visible={showEditModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCancelEdit}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Editar Lista</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Digite o nome da lista"
+              value={editListName}
+              onChangeText={setEditListName}
+              autoFocus={true}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCancelEdit}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.createButton]}
+                onPress={handleEditListSubmit}
+              >
+                <Text style={styles.createButtonText}>Salvar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -497,8 +612,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7f8c8d',
   },
-  profileButton: {
-    padding: 5,
+  profileContainer: {
+    alignItems: 'center',
   },
   avatarPlaceholder: {
     width: 40,
@@ -512,6 +627,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  profileLabel: {
+    fontSize: 10,
+    color: '#7f8c8d',
+    marginTop: 2,
   },
   listsHeader: {
     flexDirection: 'row',
@@ -548,13 +668,18 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderRadius: 10,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  listContentWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listContentWrapperPressed: {
+    opacity: 0.7,
   },
   listContent: {
     flex: 1,
@@ -582,10 +707,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     backgroundColor: '#f0f2f5',
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   shareButtonText: {
     fontSize: 14,
     color: '#3498db',
+  },
+  listActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    gap: 15,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f2f6',
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
   },
   emptyContainer: {
     alignItems: 'center',

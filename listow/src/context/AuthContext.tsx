@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await apiService.savePushToken(token);
       }
     } catch (error) {
-      console.log('Error registering push token:', error);
+      // Silently handle notification errors - don't show in console
+      console.debug('Push notification registration skipped:', error);
     }
   };
 
@@ -107,6 +108,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (googleData: {
+    accessToken: string;
+    idToken: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      photo?: string;
+    };
+  }): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.loginWithGoogle(
+        googleData.accessToken,
+        googleData.user.id,
+        googleData.user.email,
+        googleData.user.name,
+        googleData.user.photo
+      );
+
+      setUser(response.user);
+      setToken(response.token);
+
+      await AsyncStorage.setItem('auth_token', response.token);
+      await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+
+      registerForPushNotifications();
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      const message = error.response?.data?.error || 'Erro ao fazer login com Google';
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async (): Promise<void> => {
     try {
       setUser(null);
@@ -124,6 +161,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     login,
     register,
+    loginWithGoogle,
     logout,
     isAuthenticated: !!user && !!token,
   };
