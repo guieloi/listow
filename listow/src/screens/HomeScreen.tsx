@@ -30,7 +30,7 @@ const HomeScreen: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [longPressedListId, setLongPressedListId] = useState<number | null>(null);
-  
+
   // Edit List Modal State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
@@ -319,20 +319,24 @@ const HomeScreen: React.FC = () => {
         {/* Botões de ação quando pressionado */}
         {isLongPressed && (
           <View style={styles.listActionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleEditList(item)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="edit" size={24} color="#f39c12" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDeleteList(item)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="delete" size={24} color="#e74c3c" />
-            </TouchableOpacity>
+            {(item.is_owner || item.user_role === 'write') && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleEditList(item)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="edit" size={24} color="#f39c12" />
+              </TouchableOpacity>
+            )}
+            {item.is_owner && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleDeleteList(item)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="delete" size={24} color="#e74c3c" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </TouchableOpacity>
