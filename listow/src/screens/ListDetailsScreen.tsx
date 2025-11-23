@@ -98,15 +98,44 @@ const ListDetailsScreen: React.FC = () => {
     navigation.setOptions({
       title: listName,
       headerRight: () => (
-        <TouchableOpacity
-          onPress={handleShareList}
-          style={{ marginRight: 15 }}
-        >
-          <MaterialIcons name="groups" size={24} color="#3498db" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={handleShareList}
+            style={{ marginRight: 15 }}
+          >
+            <MaterialIcons name="groups" size={24} color="#3498db" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDeleteList}
+          >
+            <MaterialIcons name="delete" size={24} color="#e74c3c" />
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [listName, navigation]);
+
+  const handleDeleteList = () => {
+    Alert.alert(
+      'Excluir Lista',
+      `Deseja realmente excluir a lista "${listName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiService.deleteList(listId);
+              navigation.goBack();
+            } catch (error: any) {
+              Alert.alert('Erro', 'Erro ao excluir lista');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const fetchItems = async () => {
     try {
@@ -164,7 +193,7 @@ const ListDetailsScreen: React.FC = () => {
 
   const handleTextChange = (text: string) => {
     setNewItemText(text);
-    
+
     // Buscar sugestões baseado nos itens da lista atual
     if (text.trim().length > 0) {
       const searchTerm = text.trim().toLowerCase();
