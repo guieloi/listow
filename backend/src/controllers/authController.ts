@@ -9,7 +9,7 @@ import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
 const JWT_SECRET = 'listow_jwt_secret_key_2024';
 
 // Inicializar cliente Google OAuth
-const googleClient = process.env.GOOGLE_CLIENT_ID 
+const googleClient = process.env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
@@ -195,11 +195,11 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const { name } = req.body;
     let photo_url = undefined;
 
-    if (req.file) {
+    if ((req as any).file) {
       // Construct the full URL for the uploaded file
       const protocol = req.protocol;
       const host = req.get('host');
-      photo_url = `${protocol}://${host}/uploads/${req.file.filename}`;
+      photo_url = `${protocol}://${host}/uploads/${(req as any).file.filename}`;
     }
 
     // Build query dynamically based on provided fields
@@ -364,7 +364,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     if (result.rows.length > 0) {
       // Usuário existe
       user = result.rows[0];
-      
+
       // Se não tem google_id, atualizar (caso de conta criada com email/senha que agora usa Google)
       if (!user.google_id) {
         await pool.query(

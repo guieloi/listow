@@ -22,13 +22,15 @@
     "express-validator": "^7.3.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "google-auth-library": "^9.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^1.4.7",
     "@types/node": "^24.9.1",
     "@types/pg": "^8.15.5",
     "nodemon": "^3.1.10",
