@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,8 +24,14 @@ const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const emailRef = useRef(email);
   const { login, loginWithGoogle, isLoading } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
+
+  // Manter ref atualizada com o valor do email
+  useEffect(() => {
+    emailRef.current = email;
+  }, [email]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -33,11 +39,32 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
+    // Salvar o email atual antes de tentar fazer login (usar ref para garantir persistência)
+    const currentEmail = emailRef.current.trim() || email.trim();
+
     try {
-      await login({ email, password });
+      await login({ email: currentEmail, password });
       // Navigation will be handled by the auth state change
     } catch (error: any) {
-      Alert.alert('Erro', error.message);
+      // Limpar apenas a senha, mantendo o email
+      setPassword('');
+      // Restaurar o email usando o valor salvo no ref
+      // Isso garante que mesmo se o estado for resetado, o email será restaurado
+      const emailToRestore = emailRef.current || currentEmail;
+      setEmail(emailToRestore);
+      
+      Alert.alert('Erro', error.message, [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Garantir que o email esteja correto após fechar o Alert
+            const finalEmail = emailRef.current || currentEmail;
+            if (email !== finalEmail) {
+              setEmail(finalEmail);
+            }
+          },
+        },
+      ]);
     }
   };
 
@@ -71,6 +98,7 @@ const LoginScreen: React.FC = () => {
 
         <View style={styles.form}>
           <TextInput
+            key="email-input"
             style={styles.input}
             placeholder="Email"
             value={email}
@@ -78,15 +106,18 @@ const LoginScreen: React.FC = () => {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!isLoading}
           />
 
           <TextInput
+            key="password-input"
             style={styles.input}
             placeholder="Senha"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
+            editable={!isLoading}
           />
 
           <TouchableOpacity

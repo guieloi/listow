@@ -16,9 +16,10 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
       SELECT 
         l.*,
         COALESCE(MAX(i.created_at), l.updated_at) as last_activity,
-        COUNT(i.id) as total_items,
-        COUNT(CASE WHEN i.is_completed = false THEN 1 END) as pending_items,
-        COUNT(CASE WHEN i.is_completed = true THEN 1 END) as completed_items,
+        COUNT(DISTINCT i.id) as total_items,
+        COUNT(DISTINCT CASE WHEN i.is_completed = false THEN i.id END) as pending_items,
+        COUNT(DISTINCT CASE WHEN i.is_completed = true THEN i.id END) as completed_items,
+        COUNT(DISTINCT col.id) as collaborators_count,
         CASE 
           WHEN l.owner_id = $1 THEN 'owner'
           ELSE lc.permission
@@ -30,6 +31,7 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
       FROM shopping_lists l
       LEFT JOIN shopping_items i ON l.id = i.list_id
       LEFT JOIN list_collaborators lc ON l.id = lc.list_id AND lc.user_id = $1
+      LEFT JOIN list_collaborators col ON l.id = col.list_id
       WHERE l.owner_id = $1 OR lc.user_id = $1
       GROUP BY l.id, l.name, l.description, l.owner_id, l.is_shared, l.created_at, l.updated_at, lc.permission
       ORDER BY last_activity DESC

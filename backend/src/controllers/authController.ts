@@ -6,7 +6,11 @@ import { OAuth2Client } from 'google-auth-library';
 import pool from '../config/database';
 import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
 
-const JWT_SECRET = 'listow_jwt_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not defined!');
+}
 
 // Inicializar cliente Google OAuth
 const googleClient = process.env.GOOGLE_CLIENT_ID

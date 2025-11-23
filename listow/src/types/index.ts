@@ -40,6 +40,7 @@ export interface ShoppingList {
   user_role?: 'owner' | 'read' | 'write';
   completed_items?: number;
   total_items?: number;
+  collaborators_count?: number;
 }
 
 export interface ShoppingItem {
@@ -105,6 +106,7 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  isAuthLoading: boolean; // Novo estado para carregamento inicial
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   loginWithGoogle: (googleData: {

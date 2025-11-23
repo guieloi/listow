@@ -14,9 +14,9 @@ import ShareListScreen from '../screens/ShareListScreen';
 const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
 
-  if (isLoading) {
+  if (isAuthLoading) {
     // You could return a loading screen here
     return null;
   }

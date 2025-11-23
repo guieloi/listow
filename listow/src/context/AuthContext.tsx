@@ -13,7 +13,8 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     checkAuthState();
@@ -32,7 +33,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Error checking auth state:', error);
     } finally {
-      setIsLoading(false);
+      setIsAuthLoading(false);
     }
   };
 
@@ -120,8 +121,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }): Promise<void> => {
     try {
       setIsLoading(true);
+      // Enviar idToken ao invés de accessToken para verificação no backend
       const response = await apiService.loginWithGoogle(
-        googleData.accessToken,
+        googleData.idToken, // Mudado para idToken
         googleData.user.id,
         googleData.user.email,
         googleData.user.name,
@@ -159,6 +161,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     token,
     isLoading,
+    isAuthLoading,
     login,
     register,
     loginWithGoogle,

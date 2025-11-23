@@ -5,9 +5,9 @@ services:
     container_name: listow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: listow_db
-      POSTGRES_USER: listow_user
-      POSTGRES_PASSWORD: listow_password_2024
+      POSTGRES_DB: ${POSTGRES_DB:-listow_db}
+      POSTGRES_USER: ${POSTGRES_USER:-listow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -17,7 +17,7 @@ services:
     networks:
       - listow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U listow_user -d listow_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-listow_user} -d ${POSTGRES_DB:-listow_db}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -34,10 +34,10 @@ services:
       PORT: 8085
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: listow_db
-      DB_USER: listow_user
-      DB_PASSWORD: listow_password_2024
-      JWT_SECRET: listow_jwt_secret_key_2024_production
+      DB_NAME: ${POSTGRES_DB:-listow_db}
+      DB_USER: ${POSTGRES_USER:-listow_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8085:8085"
     depends_on:

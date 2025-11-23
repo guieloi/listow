@@ -29,6 +29,7 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
   const [longPressedListId, setLongPressedListId] = useState<number | null>(null);
 
   // Edit List Modal State
@@ -112,7 +113,10 @@ const HomeScreen: React.FC = () => {
       setLists(prev => [newList, ...prev]);
       setShowCreateModal(false);
       setNewListName('');
-      Alert.alert('Sucesso', 'Lista criada com sucesso!');
+
+      // Show success indicator
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
     } catch (error: any) {
       console.error('Error creating list:', error);
       Alert.alert('Erro', `Erro ao criar lista: ${error.message || 'Erro desconhecido'}`);
@@ -312,6 +316,11 @@ const HomeScreen: React.FC = () => {
               })}
             >
               <MaterialIcons name="groups" size={18} color="#3498db" />
+              {(item.collaborators_count && item.collaborators_count > 0) && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.collaborators_count}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -578,6 +587,16 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Success Indicator */}
+      {showSuccess && (
+        <View style={styles.successContainer}>
+          <View style={styles.successContent}>
+            <MaterialIcons name="check-circle" size={50} color="#2ecc71" />
+            <Text style={styles.successText}>Criado com sucesso!</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -713,6 +732,26 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#e74c3c',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   shareButtonText: {
     fontSize: 14,
@@ -796,6 +835,34 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  successContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    pointerEvents: 'none', // Allow touches to pass through if needed, but here we want it to be just visual
+  },
+  successContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  successText: {
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2ecc71',
   },
   modalButton: {
     flex: 1,

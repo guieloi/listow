@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -32,6 +33,31 @@ const parsePriceInput = (input: string): number => {
 // Utility function to format price for input display
 const formatPriceForInput = (price: number): string => {
   return price.toFixed(2).replace('.', ',');
+};
+
+// Utility function to format price with mask (point for thousands, comma for decimal)
+const formatPriceMask = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+  
+  if (!numbers) return '';
+  
+  // Converte para número e divide por 100 para ter centavos
+  const number = parseInt(numbers) / 100;
+  
+  // Formata com ponto para milhar e vírgula para decimal
+  return number.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
+// Utility function to parse masked price back to number
+const parseMaskedPrice = (value: string): number => {
+  // Remove pontos e substitui vírgula por ponto
+  const normalized = value.replace(/\./g, '').replace(',', '.');
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
 };
 
 // Utility function to validate item data
@@ -93,24 +119,28 @@ const ListDetailsScreen: React.FC = () => {
   const [sharePermission, setSharePermission] = useState<'read' | 'write'>('write');
   const [sharing, setSharing] = useState(false);
   const [longPressedItemId, setLongPressedItemId] = useState<number | null>(null);
+  const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
+  const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
+  const deletedItemAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeout) {
+        clearTimeout(undoTimeout);
+      }
+    };
+  }, [undoTimeout]);
 
   useEffect(() => {
     navigation.setOptions({
       title: listName,
       headerRight: () => (
-        <View style={{ flexDirection: 'row', marginRight: 15 }}>
-          <TouchableOpacity
-            onPress={handleShareList}
-            style={{ marginRight: 15 }}
-          >
-            <MaterialIcons name="groups" size={24} color="#3498db" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleDeleteList}
-          >
-            <MaterialIcons name="delete" size={24} color="#e74c3c" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={handleShareList}
+          style={{ marginRight: 15 }}
+        >
+          <MaterialIcons name="groups" size={24} color="#3498db" />
+        </TouchableOpacity>
       ),
     });
   }, [listName, navigation]);
@@ -253,8 +283,13 @@ const ListDetailsScreen: React.FC = () => {
     setEditingItem(item);
     setEditName(item.name || '');
     setEditQuantity(item.quantity ? item.quantity.toString() : '');
-    setEditPrice(item.price && item.price > 0 ? formatPriceForInput(item.price) : '');
+    setEditPrice(item.price && item.price > 0 ? formatPriceMask((item.price * 100).toString()) : '');
     setShowEditModal(true);
+  };
+
+  const handlePriceChange = (text: string) => {
+    const masked = formatPriceMask(text);
+    setEditPrice(masked);
   };
 
   const handleSaveEdit = async () => {
@@ -281,11 +316,11 @@ const ListDetailsScreen: React.FC = () => {
 
     // Processar preço - aceita nulo/vazio
     if (editPrice.trim()) {
-      const parsedPrice = parsePriceInput(editPrice);
+      const parsedPrice = parseMaskedPrice(editPrice);
       if (parsedPrice > 0) {
         price = parsedPrice;
       } else {
-        Alert.alert('Erro', 'Preço deve ser um número válido maior que zero (use vírgula como separador decimal)');
+        Alert.alert('Erro', 'Preço deve ser um número válido maior que zero');
         return;
       }
     }
@@ -369,26 +404,71 @@ const ListDetailsScreen: React.FC = () => {
     setSharePermission('write');
   };
 
-  const handleDeleteItem = (item: ShoppingItem) => {
-    Alert.alert(
-      'Excluir Item',
-      `Deseja realmente excluir "${item.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deleteItem(item.id);
-              setItems(prev => prev.filter(i => i.id !== item.id));
-            } catch (error: any) {
-              Alert.alert('Erro', 'Erro ao excluir item');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteItem = async (item: ShoppingItem) => {
+    // Remove o item da lista imediatamente
+    setItems(prev => prev.filter(i => i.id !== item.id));
+    setDeletedItem(item);
+    setLongPressedItemId(null);
+
+    // Mostra animação do toast de desfazer
+    deletedItemAnim.setValue(0);
+    Animated.timing(deletedItemAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Limpa timeout anterior se existir
+    if (undoTimeout) {
+      clearTimeout(undoTimeout);
+    }
+
+    // Cria novo timeout para confirmar exclusão após 2 segundos
+    const timeout = setTimeout(async () => {
+      // Animação de fade out do toast
+      Animated.timing(deletedItemAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(async () => {
+        try {
+          await apiService.deleteItem(item.id);
+        } catch (error: any) {
+          // Se der erro, restaura o item
+          setItems(prev => {
+            const updated = [...prev, item];
+            return sortItems(updated);
+          });
+          Alert.alert('Erro', 'Erro ao excluir item');
+        }
+        setDeletedItem(null);
+      });
+    }, 2000);
+
+    setUndoTimeout(timeout);
+  };
+
+  const handleUndoDelete = () => {
+    if (undoTimeout) {
+      clearTimeout(undoTimeout);
+      setUndoTimeout(null);
+    }
+    if (deletedItem) {
+      // Restaura o item na lista
+      setItems(prev => {
+        const updated = [...prev, deletedItem];
+        return sortItems(updated);
+      });
+      
+      // Animação de fade out do toast
+      Animated.timing(deletedItemAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setDeletedItem(null);
+      });
+    }
   };
 
   const renderItem = ({ item }: { item: ShoppingItem }) => {
@@ -411,7 +491,10 @@ const ListDetailsScreen: React.FC = () => {
 
     return (
       <TouchableOpacity
-        style={[styles.itemContainer, item.is_completed && styles.itemCompleted]}
+        style={[
+          styles.itemContainer, 
+          item.is_completed && styles.itemCompleted
+        ]}
         onLongPress={handleLongPress}
         onPress={handlePress}
         delayLongPress={500}
@@ -576,6 +659,24 @@ const ListDetailsScreen: React.FC = () => {
         contentContainerStyle={items.length === 0 ? styles.emptyListContainer : undefined}
       />
 
+      {/* Toast de desfazer exclusão */}
+      {deletedItem && (
+        <Animated.View style={[styles.undoToast, { opacity: deletedItemAnim }]}>
+          <View style={styles.undoToastContent}>
+            <Text style={styles.undoToastText}>
+              Item "{deletedItem.name}" excluído
+            </Text>
+            <TouchableOpacity
+              style={styles.undoToastButton}
+              onPress={handleUndoDelete}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.undoToastButtonText}>Desfazer</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Modal de compartilhamento */}
       <Modal
         visible={showShareModal}
@@ -650,31 +751,33 @@ const ListDetailsScreen: React.FC = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Editar Item</Text>
 
-            <Text style={styles.inputLabel}>Nome do item:</Text>
+            <Text style={styles.inputLabel}>Nome do item</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Digite o nome do item"
               value={editName}
               onChangeText={setEditName}
             />
 
-            <Text style={styles.inputLabel}>Quantidade (opcional):</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Digite a quantidade (deixe vazio para não exibir)"
-              value={editQuantity}
-              onChangeText={setEditQuantity}
-              keyboardType="numeric"
-            />
-
-            <Text style={styles.inputLabel}>Preço (opcional):</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Digite o preço (ex: 10,50)"
-              value={editPrice}
-              onChangeText={setEditPrice}
-              keyboardType="numeric"
-            />
+            <View style={styles.rowInputs}>
+              <View style={styles.halfInput}>
+                <Text style={styles.inputLabel}>Quantidade</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editQuantity}
+                  onChangeText={setEditQuantity}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={styles.inputLabel}>Preço</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editPrice}
+                  onChangeText={handlePriceChange}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -816,6 +919,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     opacity: 0.7,
   },
+  undoToast: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#2c3e50',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  undoToastContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  undoToastText: {
+    color: '#ffffff',
+    fontSize: 14,
+    flex: 1,
+    marginRight: 12,
+  },
+  undoToastButton: {
+    backgroundColor: '#e74c3c',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  undoToastButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   checkboxContainer: {
     marginRight: 8,
     padding: 4,
@@ -847,11 +988,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '500',
     color: '#2c3e50',
     flex: 1,
-    lineHeight: 21, // Altura de linha ajustada para fonte maior
+    lineHeight: 24, // Altura de linha ajustada para fonte maior
     marginRight: 8,
     minWidth: 0,
   },
@@ -947,22 +1088,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
   },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  halfInput: {
+    flex: 1,
+  },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
+    gap: 10,
   },
   modalButton: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#95a5a6',
   },
   saveButton: {
-    backgroundColor: '#27ae60',
+    backgroundColor: '#3498db',
   },
   cancelButtonText: {
     color: '#ffffff',
