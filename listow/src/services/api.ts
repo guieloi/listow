@@ -9,6 +9,8 @@ import syncService from './syncService';
 // Para desenvolvimento local, altere para: 'http://10.0.2.2:8085/api' (Android Emulator)
 // ou 'http://192.168.15.194:8085/api' (dispositivo físico com IP da sua máquina)
 const API_BASE_URL = 'https://app.grupoigl.online/api'; // ← PRODUÇÃO
+// const API_BASE_URL = 'http://10.0.2.2:8085/api'; // ← DESENVOLVIMENTO (Android Emulator)
+// Para uso no navegador ou iOS Simulator, use: 'http://localhost:8085/api'
 
 class ApiService {
   private api: AxiosInstance;

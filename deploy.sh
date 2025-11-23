@@ -35,9 +35,19 @@ echo "📥 Atualizando código..."
 git fetch origin
 git reset --hard origin/main
 
-# Construir e iniciar containers
+# Construir e iniciar containers (Forçando rebuild para garantir npm install)
 echo "🔨 Construindo e iniciando containers..."
 docker-compose up -d --build --force-recreate
+
+# Aguardar um momento para o container tentar subir
+sleep 10
+
+# Se o container estiver reiniciando, pode ser necessário rodar npm install manualmente
+if docker ps | grep "listow-backend" | grep -q "Restarting"; then
+    echo "⚠️ Container em loop de reinício. Tentando instalar dependências..."
+    docker-compose run --rm backend npm install
+    docker-compose restart backend
+fi
 
 # Aguardar containers iniciarem
 echo "⏳ Aguardando containers iniciarem..."

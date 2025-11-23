@@ -822,9 +822,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: 40, // Largura fixa para alinhamento
-    borderWidth: 1,
-    borderColor: '#d3d3d3',
-    borderRadius: 4,
   },
   checkboxText: {
     fontSize: 36, // Aumentado
