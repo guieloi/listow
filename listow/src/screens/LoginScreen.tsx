@@ -1,26 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { 
+  Text, 
+  TextInput, 
+  Button, 
+  useTheme, 
+  Surface 
+} from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types';
 import { signInWithGoogle } from '../services/googleAuth';
+import { AppTheme } from '../theme';
+import LogoSVG from '../components/LogoSVG';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen: React.FC = () => {
+  const theme = useTheme<AppTheme>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -28,43 +34,22 @@ const LoginScreen: React.FC = () => {
   const { login, loginWithGoogle, isLoading } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
 
-  // Manter ref atualizada com o valor do email
   useEffect(() => {
     emailRef.current = email;
   }, [email]);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
+      Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
-    // Salvar o email atual antes de tentar fazer login (usar ref para garantir persistência)
-    const currentEmail = emailRef.current.trim() || email.trim();
-
     try {
-      await login({ email: currentEmail, password });
-      // Navigation will be handled by the auth state change
+      await login({ email: email.trim(), password });
     } catch (error: any) {
-      // Limpar apenas a senha, mantendo o email
       setPassword('');
-      // Restaurar o email usando o valor salvo no ref
-      // Isso garante que mesmo se o estado for resetado, o email será restaurado
-      const emailToRestore = emailRef.current || currentEmail;
-      setEmail(emailToRestore);
-      
-      Alert.alert('Erro', error.message, [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Garantir que o email esteja correto após fechar o Alert
-            const finalEmail = emailRef.current || currentEmail;
-            if (email !== finalEmail) {
-              setEmail(finalEmail);
-            }
-          },
-        },
-      ]);
+      setEmail(emailRef.current); 
+      Alert.alert('Erro', error.message || 'Falha no login');
     }
   };
 
@@ -73,7 +58,6 @@ const LoginScreen: React.FC = () => {
       setIsGoogleLoading(true);
       const googleData = await signInWithGoogle();
       await loginWithGoogle(googleData);
-      // Navigation will be handled by the auth state change
     } catch (error: any) {
       Alert.alert('Erro', error.message || 'Erro ao fazer login com Google');
     } finally {
@@ -81,87 +65,81 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  const navigateToRegister = () => {
-    navigation.navigate('Register');
-  };
-
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Listow</Text>
-          <Text style={styles.subtitle}>Sua lista de compras inteligente</Text>
+          <LogoSVG width={80} height={80} />
+          <Text variant="displayMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginTop: 16}}>Listow</Text>
+          <Text variant="titleMedium" style={{color: theme.colors.onSurfaceVariant, marginTop: 4}}>Suas listas aqui</Text>
         </View>
 
-        <View style={styles.form}>
+        <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
           <TextInput
-            key="email-input"
-            style={styles.input}
-            placeholder="Email"
+            label="Email"
             value={email}
             onChangeText={setEmail}
+            mode="outlined"
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isLoading}
+            style={styles.input}
+            left={<TextInput.Icon icon="email" />}
+            disabled={isLoading}
           />
 
           <TextInput
-            key="password-input"
-            style={styles.input}
-            placeholder="Senha"
+            label="Senha"
             value={password}
             onChangeText={setPassword}
+            mode="outlined"
             secureTextEntry
-            autoCapitalize="none"
-            editable={!isLoading}
+            style={styles.input}
+            left={<TextInput.Icon icon="lock" />}
+            disabled={isLoading}
           />
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
+          <Button 
+            mode="contained" 
+            onPress={handleLogin} 
+            loading={isLoading} 
             disabled={isLoading}
+            style={styles.button}
+            contentStyle={{height: 50}}
+            buttonColor={theme.colors.primary}
+            textColor={theme.colors.onPrimary}
           >
-            <Text style={styles.buttonText}>
-              {isLoading ? 'Entrando...' : 'Entrar'}
-            </Text>
-          </TouchableOpacity>
+            Entrar
+          </Button>
 
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={navigateToRegister}
-          >
-            <Text style={styles.linkText}>
-              Não tem conta? Criar conta
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OU</Text>
-            <View style={styles.dividerLine} />
+          <View style={styles.dividerContainer}>
+             <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
+             <Text variant="bodySmall" style={{marginHorizontal: 8, color: theme.colors.outline}}>OU</Text>
+             <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
           </View>
 
-          <TouchableOpacity
-            style={[styles.googleButton, (isLoading || isGoogleLoading) && styles.buttonDisabled]}
+          <Button
+            mode="outlined"
             onPress={handleGoogleLogin}
+            loading={isGoogleLoading}
             disabled={isLoading || isGoogleLoading}
+            icon="google"
+            style={[styles.googleButton, { borderColor: theme.colors.outline }]}
+            textColor={theme.colors.onSurface}
           >
-            {isGoogleLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <MaterialIcons name="account-circle" size={20} color="#ffffff" />
-                <Text style={styles.googleButtonText}>
-                  Entrar com Google
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+            Entrar com Google
+          </Button>
+        </Surface>
+
+        <View style={styles.footer}>
+           <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>Não tem uma conta?</Text>
+           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4}}>Criar conta</Text>
+           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -170,91 +148,45 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    textAlign: 'center',
-  },
-  form: {
+  formCard: {
     width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    padding: 24,
+    borderRadius: 24,
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
+    marginBottom: 16,
   },
   button: {
-    backgroundColor: '#3498db',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 15,
+    marginTop: 8,
+    marginBottom: 24,
   },
-  buttonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  linkButton: {
-    alignItems: 'center',
-    padding: 10,
-  },
-  linkText: {
-    color: '#3498db',
-    fontSize: 16,
-  },
-  divider: {
+  dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginBottom: 24,
   },
-  dividerLine: {
+  line: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 15,
-    color: '#7f8c8d',
-    fontSize: 14,
   },
   googleButton: {
-    backgroundColor: '#db4437',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
+  },
+  footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
-  },
-  googleButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: 40,
   },
 });
 

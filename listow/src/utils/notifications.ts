@@ -3,9 +3,12 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// Check if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
+
 // Only set notification handler if not running in Expo Go
 try {
-    if (!Constants.appOwnership || Constants.appOwnership !== 'expo') {
+    if (!isExpoGo) {
         Notifications.setNotificationHandler({
             handleNotification: async () => ({
                 shouldShowAlert: true,
@@ -17,14 +20,14 @@ try {
         });
     }
 } catch (error) {
-    // Silently ignore notification setup errors
     console.debug('Notification handler setup skipped:', error);
 }
 
 export async function registerForPushNotificationsAsync() {
     try {
-        // Skip if running in Expo Go (notifications not supported)
-        if (Constants.appOwnership === 'expo') {
+        // Skip if running in Expo Go
+        if (isExpoGo) {
+            console.log('Running in Expo Go - Push Notifications skipped');
             return null;
         }
 
@@ -39,7 +42,6 @@ export async function registerForPushNotificationsAsync() {
                     lightColor: '#FF231F7C',
                 });
             } catch (error) {
-                // Silently handle channel setup errors
                 console.debug('Notification channel setup skipped:', error);
             }
         }
@@ -56,19 +58,24 @@ export async function registerForPushNotificationsAsync() {
                     return null;
                 }
 
-                // Get the token using the projectId from app.json/eas.json if available
                 const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
+                
+                // Extra safety check before calling getExpoPushTokenAsync
+                if (!projectId && isExpoGo) {
+                    return null;
+                }
+
                 token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
             } catch (e) {
-                // Silently handle token errors
                 console.debug('Push token error:', e);
                 return null;
             }
+        } else {
+            // alert('Must use physical device for Push Notifications');
         }
 
         return token;
     } catch (error) {
-        // Silently handle all notification errors
         console.debug('Notification registration error:', error);
         return null;
     }

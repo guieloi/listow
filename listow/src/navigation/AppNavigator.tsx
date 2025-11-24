@@ -1,8 +1,10 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useTheme } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types';
+import { AppTheme } from '../theme';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
@@ -15,6 +17,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   const { isAuthenticated, isAuthLoading } = useAuth();
+  const theme = useTheme<AppTheme>();
 
   if (isAuthLoading) {
     // You could return a loading screen here
@@ -26,12 +29,18 @@ const AppNavigator: React.FC = () => {
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#3498db',
+            backgroundColor: theme.colors.background,
+            elevation: 0, // Remove shadow on Android
+            shadowOpacity: 0, // Remove shadow on iOS
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.outline,
           },
-          headerTintColor: '#fff',
+          headerTintColor: theme.colors.onBackground,
           headerTitleStyle: {
-            fontWeight: 'bold',
+            fontWeight: '600',
+            fontSize: 18,
           },
+          cardStyle: { backgroundColor: theme.colors.background },
         }}
       >
         {isAuthenticated ? (
@@ -41,22 +50,21 @@ const AppNavigator: React.FC = () => {
               name="Home"
               component={HomeScreen}
               options={{
-                title: 'Listow',
-                headerLeft: undefined, // Remove back button
+                headerShown: false, // Custom header in HomeScreen looks better
               }}
             />
             <Stack.Screen
               name="ListDetails"
               component={ListDetailsScreen}
               options={{
-                title: 'Lista',
+                title: 'Detalhes da Lista',
               }}
             />
             <Stack.Screen
               name="ShareList"
               component={ShareListScreen}
               options={{
-                title: 'Compartilhar Lista',
+                title: 'Compartilhar',
               }}
             />
           </>
@@ -67,15 +75,14 @@ const AppNavigator: React.FC = () => {
               name="Login"
               component={LoginScreen}
               options={{
-                title: 'Login',
-                headerShown: false, // Hide header for login screen
+                headerShown: false,
               }}
             />
             <Stack.Screen
               name="Register"
               component={RegisterScreen}
               options={{
-                title: 'Criar Conta',
+                headerShown: false, // Modern register screens usually don't have a standard header
               }}
             />
           </>

@@ -1,23 +1,31 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
+import { 
+  Text, 
+  TextInput, 
+  Button, 
+  useTheme, 
+  Surface 
+} from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types';
+import { AppTheme } from '../theme';
+import LogoSVG from '../components/LogoSVG';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 
 const RegisterScreen: React.FC = () => {
+  const theme = useTheme<AppTheme>();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +35,7 @@ const RegisterScreen: React.FC = () => {
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
+      Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
@@ -43,83 +51,84 @@ const RegisterScreen: React.FC = () => {
 
     try {
       await register({ name, email, password });
-      // Navigation will be handled by the auth state change
     } catch (error: any) {
       Alert.alert('Erro', error.message);
     }
   };
 
-  const navigateToLogin = () => {
-    navigation.navigate('Login');
-  };
-
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Criar Conta</Text>
-          <Text style={styles.subtitle}>Junte-se ao Listow</Text>
+          <LogoSVG width={64} height={64} />
+          <Text variant="displaySmall" style={{color: theme.colors.primary, fontWeight: 'bold', marginTop: 16}}>Criar Conta</Text>
+          <Text variant="bodyLarge" style={{color: theme.colors.onSurfaceVariant, marginTop: 8}}>Junte-se ao Listow hoje</Text>
         </View>
 
-        <View style={styles.form}>
+        <Surface style={styles.formCard} elevation={0}>
           <TextInput
-            style={styles.input}
-            placeholder="Nome completo"
+            label="Nome Completo"
             value={name}
             onChangeText={setName}
+            mode="outlined"
             autoCapitalize="words"
+            style={styles.input}
+            left={<TextInput.Icon icon="account" />}
           />
 
           <TextInput
-            style={styles.input}
-            placeholder="Email"
+            label="Email"
             value={email}
             onChangeText={setEmail}
+            mode="outlined"
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
+            style={styles.input}
+            left={<TextInput.Icon icon="email" />}
           />
 
           <TextInput
-            style={styles.input}
-            placeholder="Senha"
+            label="Senha"
             value={password}
             onChangeText={setPassword}
+            mode="outlined"
             secureTextEntry
-            autoCapitalize="none"
+            style={styles.input}
+            left={<TextInput.Icon icon="lock" />}
           />
 
           <TextInput
-            style={styles.input}
-            placeholder="Confirmar senha"
+            label="Confirmar Senha"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
+            mode="outlined"
             secureTextEntry
-            autoCapitalize="none"
+            style={styles.input}
+            left={<TextInput.Icon icon="lock-check" />}
           />
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleRegister}
+          <Button 
+            mode="contained" 
+            onPress={handleRegister} 
+            loading={isLoading} 
             disabled={isLoading}
+            style={styles.button}
+            contentStyle={{height: 50}}
           >
-            <Text style={styles.buttonText}>
-              {isLoading ? 'Criando conta...' : 'Criar conta'}
-            </Text>
-          </TouchableOpacity>
+            Criar Conta
+          </Button>
+        </Surface>
 
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={navigateToLogin}
-          >
-            <Text style={styles.linkText}>
-              Já tem conta? Fazer login
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.footer}>
+           <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>Já tem conta?</Text>
+           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4}}>Fazer Login</Text>
+           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -128,62 +137,33 @@ const RegisterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    textAlign: 'center',
-  },
-  form: {
+  formCard: {
+    backgroundColor: 'transparent',
     width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
+    marginBottom: 16,
   },
   button: {
-    backgroundColor: '#27ae60',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 15,
+    marginTop: 8,
+    marginBottom: 24,
   },
-  buttonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  linkButton: {
-    alignItems: 'center',
-    padding: 10,
-  },
-  linkText: {
-    color: '#3498db',
-    fontSize: 16,
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
   },
 });
 
