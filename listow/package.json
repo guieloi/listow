@@ -1,6 +1,6 @@
 {
   "name": "listow",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -12,6 +12,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
+    "@react-native-google-signin/google-signin": "^16.0.0",
     "@react-navigation/bottom-tabs": "^7.5.0",
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/stack": "^7.5.0",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "dotenv": "^17.2.3",
     "react-native-svg-transformer": "^1.5.2",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"

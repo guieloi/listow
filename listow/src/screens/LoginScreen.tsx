@@ -8,12 +8,12 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { 
-  Text, 
-  TextInput, 
-  Button, 
-  useTheme, 
-  Surface 
+import {
+  Text,
+  TextInput,
+  Button,
+  useTheme,
+  Surface
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -29,6 +29,7 @@ const LoginScreen: React.FC = () => {
   const theme = useTheme<AppTheme>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const emailRef = useRef(email);
   const { login, loginWithGoogle, isLoading } = useAuth();
@@ -48,7 +49,7 @@ const LoginScreen: React.FC = () => {
       await login({ email: email.trim(), password });
     } catch (error: any) {
       setPassword('');
-      setEmail(emailRef.current); 
+      setEmail(emailRef.current);
       Alert.alert('Erro', error.message || 'Falha no login');
     }
   };
@@ -59,6 +60,15 @@ const LoginScreen: React.FC = () => {
       const googleData = await signInWithGoogle();
       await loginWithGoogle(googleData);
     } catch (error: any) {
+      // Ignorar erros de cancelamento ou falta de token (comum ao fechar o modal)
+      if (
+        error.message === 'Autenticação cancelada pelo usuário' ||
+        error.message === 'No idToken returned from Google Sign-In' ||
+        error.code === 'SIGN_IN_CANCELLED'
+      ) {
+        console.log('Login Google cancelado ou incompleto');
+        return;
+      }
       Alert.alert('Erro', error.message || 'Erro ao fazer login com Google');
     } finally {
       setIsGoogleLoading(false);
@@ -73,8 +83,8 @@ const LoginScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <LogoSVG width={80} height={80} />
-          <Text variant="displayMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginTop: 16}}>Listow</Text>
-          <Text variant="titleMedium" style={{color: theme.colors.onSurfaceVariant, marginTop: 4}}>Suas listas aqui</Text>
+          <Text variant="displayMedium" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 16 }}>Listow</Text>
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>Suas listas aqui</Text>
         </View>
 
         <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
@@ -95,19 +105,25 @@ const LoginScreen: React.FC = () => {
             value={password}
             onChangeText={setPassword}
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             style={styles.input}
             left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={showPassword ? "eye-off" : "eye"}
+                onPress={() => setShowPassword(!showPassword)}
+              />
+            }
             disabled={isLoading}
           />
 
-          <Button 
-            mode="contained" 
-            onPress={handleLogin} 
-            loading={isLoading} 
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={isLoading}
             disabled={isLoading}
             style={styles.button}
-            contentStyle={{height: 50}}
+            contentStyle={{ height: 50 }}
             buttonColor={theme.colors.primary}
             textColor={theme.colors.onPrimary}
           >
@@ -115,9 +131,9 @@ const LoginScreen: React.FC = () => {
           </Button>
 
           <View style={styles.dividerContainer}>
-             <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
-             <Text variant="bodySmall" style={{marginHorizontal: 8, color: theme.colors.outline}}>OU</Text>
-             <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
+            <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
+            <Text variant="bodySmall" style={{ marginHorizontal: 8, color: theme.colors.outline }}>OU</Text>
+            <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
           </View>
 
           <Button
@@ -134,10 +150,10 @@ const LoginScreen: React.FC = () => {
         </Surface>
 
         <View style={styles.footer}>
-           <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>Não tem uma conta?</Text>
-           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4}}>Criar conta</Text>
-           </TouchableOpacity>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Não tem uma conta?</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text variant="bodyMedium" style={{ color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4 }}>Criar conta</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>

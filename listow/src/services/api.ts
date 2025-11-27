@@ -1,15 +1,17 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import Constants from 'expo-constants';
 import { ApiResponse, AuthResponse, User, ShoppingList, ShoppingItem, CreateListData, CreateItemData, UpdateItemData } from '../types';
 import syncService from './syncService';
 
-// CONFIGURAÇÃO DO BACKEND - PRODUÇÃO
+// CONFIGURAÇÃO DO BACKEND - Usa variáveis de ambiente
 // Backend em produção hospedado em: https://app.grupoigl.online
 // Para desenvolvimento local, altere para: 'http://10.0.2.2:8085/api' (Android Emulator)
 // ou 'http://192.168.15.194:8085/api' (dispositivo físico com IP da sua máquina)
-const API_BASE_URL = 'https://app.grupoigl.online/api'; // ← PRODUÇÃO
-// const API_BASE_URL = 'http://10.0.2.2:8085/api'; // ← DESENVOLVIMENTO (Android Emulator)
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 
+                     process.env.EXPO_PUBLIC_API_BASE_URL || 
+                     'https://app.grupoigl.online/api'; // ← PRODUÇÃO (fallback)
 // Para uso no navegador ou iOS Simulator, use: 'http://localhost:8085/api'
 
 class ApiService {

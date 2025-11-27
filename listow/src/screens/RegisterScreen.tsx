@@ -8,12 +8,12 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { 
-  Text, 
-  TextInput, 
-  Button, 
-  useTheme, 
-  Surface 
+import {
+  Text,
+  TextInput,
+  Button,
+  useTheme,
+  Surface
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -30,6 +30,8 @@ const RegisterScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register, isLoading } = useAuth();
   const navigation = useNavigation<RegisterScreenNavigationProp>();
 
@@ -44,8 +46,16 @@ const RegisterScreen: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+    if (password.length < 8) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+
+    if (!hasLetter || !hasNumber) {
+      Alert.alert('Erro', 'A senha deve conter letras e números.');
       return;
     }
 
@@ -64,8 +74,8 @@ const RegisterScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <LogoSVG width={64} height={64} />
-          <Text variant="displaySmall" style={{color: theme.colors.primary, fontWeight: 'bold', marginTop: 16}}>Criar Conta</Text>
-          <Text variant="bodyLarge" style={{color: theme.colors.onSurfaceVariant, marginTop: 8}}>Junte-se ao Listow hoje</Text>
+          <Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginTop: 16 }}>Criar Conta</Text>
+          <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>Junte-se ao Listow hoje</Text>
         </View>
 
         <Surface style={styles.formCard} elevation={0}>
@@ -95,9 +105,15 @@ const RegisterScreen: React.FC = () => {
             value={password}
             onChangeText={setPassword}
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             style={styles.input}
             left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={showPassword ? "eye-off" : "eye"}
+                onPress={() => setShowPassword(!showPassword)}
+              />
+            }
           />
 
           <TextInput
@@ -105,28 +121,34 @@ const RegisterScreen: React.FC = () => {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!showConfirmPassword}
             style={styles.input}
             left={<TextInput.Icon icon="lock-check" />}
+            right={
+              <TextInput.Icon
+                icon={showConfirmPassword ? "eye-off" : "eye"}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              />
+            }
           />
 
-          <Button 
-            mode="contained" 
-            onPress={handleRegister} 
-            loading={isLoading} 
+          <Button
+            mode="contained"
+            onPress={handleRegister}
+            loading={isLoading}
             disabled={isLoading}
             style={styles.button}
-            contentStyle={{height: 50}}
+            contentStyle={{ height: 50 }}
           >
             Criar Conta
           </Button>
         </Surface>
 
         <View style={styles.footer}>
-           <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>Já tem conta?</Text>
-           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text variant="bodyMedium" style={{color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4}}>Fazer Login</Text>
-           </TouchableOpacity>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Já tem conta?</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text variant="bodyMedium" style={{ color: theme.colors.primary, fontWeight: 'bold', marginLeft: 4 }}>Fazer Login</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>

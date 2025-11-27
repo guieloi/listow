@@ -13,8 +13,7 @@
         "buildType": "apk"
       },
       "env": {
-        "NODE_ENV": "production",
-        "API_BASE_URL": "https://app.grupoigl.online/api"
+        "NODE_ENV": "production"
       }
     },
     "production": {
@@ -23,8 +22,7 @@
         "buildType": "apk"
       },
       "env": {
-        "NODE_ENV": "production",
-        "API_BASE_URL": "https://app.grupoigl.online/api"
+        "NODE_ENV": "production"
       }
     }
   },

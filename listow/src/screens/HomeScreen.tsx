@@ -8,17 +8,17 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { 
-  Text, 
-  FAB, 
-  useTheme, 
-  Card, 
-  Avatar, 
-  IconButton, 
-  Portal, 
-  Modal, 
-  TextInput, 
-  Button, 
+import {
+  Text,
+  FAB,
+  useTheme,
+  Card,
+  Avatar,
+  IconButton,
+  Portal,
+  Modal,
+  TextInput,
+  Button,
   ProgressBar,
   Menu,
   Divider,
@@ -33,6 +33,7 @@ import apiService from '../services/api';
 import { RootStackParamList, ShoppingList } from '../types';
 import { AppTheme } from '../theme';
 import LogoSVG from '../components/LogoSVG';
+import Constants from 'expo-constants';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -46,7 +47,7 @@ const HomeScreen: React.FC = () => {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -57,11 +58,13 @@ const HomeScreen: React.FC = () => {
   const [newListName, setNewListName] = useState('');
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
   const [editListName, setEditListName] = useState('');
-  
+
   // Profile Data
   const [profileName, setProfileName] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [visibleMenuId, setVisibleMenuId] = useState<number | null>(null);
 
   const openMenu = (id: number) => setVisibleMenuId(id);
@@ -169,7 +172,15 @@ const HomeScreen: React.FC = () => {
 
   const handleChangePassword = async () => {
     try {
-      if (newPassword.length < 6) throw new Error('Senha muito curta.');
+      if (newPassword.length < 8) throw new Error('A senha deve ter pelo menos 8 caracteres.');
+
+      const hasLetter = /[a-zA-Z]/.test(newPassword);
+      const hasNumber = /[0-9]/.test(newPassword);
+
+      if (!hasLetter || !hasNumber) {
+        throw new Error('A senha deve conter letras e números.');
+      }
+
       await apiService.changePassword(currentPassword, newPassword);
       Alert.alert('Sucesso', 'Senha alterada!');
       setShowPasswordModal(false);
@@ -183,100 +194,100 @@ const HomeScreen: React.FC = () => {
   // --- Render ---
 
   const renderListItem = ({ item }: { item: ShoppingList }) => {
-    const progress = item.total_items && item.total_items > 0 
-      ? (item.completed_items || 0) / item.total_items 
+    const progress = item.total_items && item.total_items > 0
+      ? (item.completed_items || 0) / item.total_items
       : 0;
 
     return (
-      <Card 
-        style={[styles.card, { backgroundColor: theme.colors.surface }]} 
+      <Card
+        style={[styles.card, { backgroundColor: theme.colors.surface }]}
         onPress={() => navigation.navigate('ListDetails', { listId: item.id, listName: item.name })}
         mode="elevated"
         elevation={1}
       >
         <Card.Content>
           <View style={styles.cardHeader}>
-            <View style={{flex: 1}}>
+            <View style={{ flex: 1 }}>
               <Text variant="titleLarge" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>{item.name}</Text>
-              <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                 {item.completed_items || 0} de {item.total_items || 0} itens marcados
               </Text>
             </View>
-            
+
             {(item.is_owner || item.user_role === 'write') && (
-               <Menu
-                 visible={visibleMenuId === item.id}
-                 onDismiss={closeMenu}
-                 anchor={
-                   <IconButton
+              <Menu
+                visible={visibleMenuId === item.id}
+                onDismiss={closeMenu}
+                anchor={
+                  <IconButton
                     icon="dots-vertical"
                     onPress={() => openMenu(item.id)}
-                   />
-                 }
-                 contentStyle={{ backgroundColor: theme.colors.surface }}
-               >
-                 <Menu.Item 
-                   onPress={() => {
-                     closeMenu();
-                     navigation.navigate('ShareList', {
-                        listId: item.id,
-                        listName: item.name,
-                        isOwner: item.is_owner,
-                        userRole: item.user_role,
-                        ownerId: item.owner_id
-                     });
-                   }} 
-                   title="Compartilhar" 
-                   leadingIcon="share-variant"
-                 />
-                 <Menu.Item 
-                   onPress={() => {
-                     closeMenu();
-                     setEditingList(item);
-                     setEditListName(item.name);
-                     setShowEditModal(true);
-                   }} 
-                   title="Editar Nome" 
-                   leadingIcon="pencil"
-                 />
-                 <Divider />
-                 {item.is_owner ? (
-                   <Menu.Item 
-                     onPress={() => {
-                       closeMenu();
-                       handleDeleteList(item);
-                     }} 
-                     title="Excluir" 
-                     leadingIcon="delete"
-                     titleStyle={{color: theme.colors.error}}
-                   />
-                 ) : (
-                   <Menu.Item 
-                     onPress={() => {
-                        closeMenu();
-                        // TODO: Implement leave list logic
-                     }}
-                     title="Sair da Lista"
-                     leadingIcon="logout"
-                     titleStyle={{color: theme.colors.error}}
-                   />
-                 )}
-               </Menu>
+                  />
+                }
+                contentStyle={{ backgroundColor: theme.colors.surface }}
+              >
+                <Menu.Item
+                  onPress={() => {
+                    closeMenu();
+                    navigation.navigate('ShareList', {
+                      listId: item.id,
+                      listName: item.name,
+                      isOwner: item.is_owner,
+                      userRole: item.user_role,
+                      ownerId: item.owner_id
+                    });
+                  }}
+                  title="Compartilhar"
+                  leadingIcon="share-variant"
+                />
+                <Menu.Item
+                  onPress={() => {
+                    closeMenu();
+                    setEditingList(item);
+                    setEditListName(item.name);
+                    setShowEditModal(true);
+                  }}
+                  title="Editar Nome"
+                  leadingIcon="pencil"
+                />
+                <Divider />
+                {item.is_owner ? (
+                  <Menu.Item
+                    onPress={() => {
+                      closeMenu();
+                      handleDeleteList(item);
+                    }}
+                    title="Excluir"
+                    leadingIcon="delete"
+                    titleStyle={{ color: theme.colors.error }}
+                  />
+                ) : (
+                  <Menu.Item
+                    onPress={() => {
+                      closeMenu();
+                      // TODO: Implement leave list logic
+                    }}
+                    title="Sair da Lista"
+                    leadingIcon="logout"
+                    titleStyle={{ color: theme.colors.error }}
+                  />
+                )}
+              </Menu>
             )}
           </View>
-          
-          <ProgressBar 
-            progress={progress} 
-            color={progress === 1 ? theme.colors.secondary : theme.colors.primary} 
-            style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]} 
+
+          <ProgressBar
+            progress={progress}
+            color={progress === 1 ? theme.colors.secondary : theme.colors.primary}
+            style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]}
           />
-          
+
           {item.is_shared && (
             <View style={styles.sharedBadge}>
-               <Avatar.Icon size={24} icon="account-group" style={{backgroundColor: 'transparent'}} color={theme.colors.primary} />
-               <Text variant="labelSmall" style={{color: theme.colors.primary}}>
-                 {item.collaborators_count ? `${item.collaborators_count} membros` : 'Compartilhada'}
-               </Text>
+              <Avatar.Icon size={24} icon="account-group" style={{ backgroundColor: 'transparent' }} color={theme.colors.primary} />
+              <Text variant="labelSmall" style={{ color: theme.colors.primary }}>
+                {item.collaborators_count ? `${item.collaborators_count} membros` : 'Compartilhada'}
+              </Text>
             </View>
           )}
         </Card.Content>
@@ -287,33 +298,33 @@ const HomeScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Logo e Nome do App */}
-      <Surface style={[styles.appHeader, {backgroundColor: theme.colors.background}]} elevation={0}>
+      <Surface style={[styles.appHeader, { backgroundColor: theme.colors.background }]} elevation={0}>
         <View style={styles.logoContainer}>
           <LogoSVG width={48} height={48} />
-          <Text variant="headlineMedium" style={[styles.appName, {color: theme.colors.primary}]}>
+          <Text variant="headlineMedium" style={[styles.appName, { color: theme.colors.primary }]}>
             Listow
           </Text>
         </View>
+        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+          <Avatar.Text
+            size={45}
+            label={getInitials(user?.name)}
+            style={{ backgroundColor: theme.colors.primaryContainer }}
+            color={theme.colors.onPrimaryContainer}
+          />
+        </TouchableOpacity>
       </Surface>
 
       {/* Header Customizado */}
-      <Surface style={[styles.header, {backgroundColor: theme.colors.background}]} elevation={0}>
+      <Surface style={[styles.header, { backgroundColor: theme.colors.background }]} elevation={0}>
         <View>
-          <Text variant="headlineSmall" style={{fontWeight: 'bold', color: theme.colors.onBackground}}>
+          <Text variant="headlineSmall" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>
             Olá, {user?.name || 'Usuário'}
           </Text>
-          <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             Suas listas
           </Text>
         </View>
-        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-          <Avatar.Text 
-            size={45} 
-            label={getInitials(user?.name)} 
-            style={{backgroundColor: theme.colors.primaryContainer}} 
-            color={theme.colors.onPrimaryContainer} 
-          />
-        </TouchableOpacity>
       </Surface>
 
       <FlatList
@@ -327,8 +338,8 @@ const HomeScreen: React.FC = () => {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyContainer}>
-              <Avatar.Icon size={80} icon="cart-off" style={{backgroundColor: theme.colors.surfaceVariant}} color={theme.colors.onSurfaceVariant} />
-              <Text variant="titleMedium" style={{marginTop: 16, color: theme.colors.onSurfaceVariant}}>
+              <Avatar.Icon size={80} icon="cart-off" style={{ backgroundColor: theme.colors.surfaceVariant }} color={theme.colors.onSurfaceVariant} />
+              <Text variant="titleMedium" style={{ marginTop: 16, color: theme.colors.onSurfaceVariant }}>
                 Nenhuma lista encontrada
               </Text>
               <Button mode="text" onPress={() => setShowCreateModal(true)}>
@@ -349,7 +360,7 @@ const HomeScreen: React.FC = () => {
 
       {/* Create List Modal */}
       <Portal>
-        <Modal visible={showCreateModal} onDismiss={() => setShowCreateModal(false)} contentContainerStyle={[styles.modalContent, {backgroundColor: theme.colors.surface}]}>
+        <Modal visible={showCreateModal} onDismiss={() => setShowCreateModal(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
           <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Nova Lista</Text>
           <TextInput
             label="Nome da Lista"
@@ -368,7 +379,7 @@ const HomeScreen: React.FC = () => {
 
       {/* Edit List Modal */}
       <Portal>
-        <Modal visible={showEditModal} onDismiss={() => setShowEditModal(false)} contentContainerStyle={[styles.modalContent, {backgroundColor: theme.colors.surface}]}>
+        <Modal visible={showEditModal} onDismiss={() => setShowEditModal(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
           <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Editar Lista</Text>
           <TextInput
             label="Nome da Lista"
@@ -387,14 +398,14 @@ const HomeScreen: React.FC = () => {
 
       {/* Profile Modal */}
       <Portal>
-        <Modal visible={showProfileModal} onDismiss={() => setShowProfileModal(false)} contentContainerStyle={[styles.modalContent, {backgroundColor: theme.colors.surface}]}>
-          <View style={{alignItems: 'center', marginBottom: 20}}>
-             <Avatar.Text 
-               size={80} 
-               label={getInitials(user?.name)} 
-               style={{backgroundColor: theme.colors.primaryContainer}} 
-               color={theme.colors.onPrimaryContainer}
-             />
+        <Modal visible={showProfileModal} onDismiss={() => setShowProfileModal(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+            <Avatar.Text
+              size={80}
+              label={getInitials(user?.name)}
+              style={{ backgroundColor: theme.colors.primaryContainer }}
+              color={theme.colors.onPrimaryContainer}
+            />
           </View>
 
           <TextInput
@@ -413,22 +424,22 @@ const HomeScreen: React.FC = () => {
           />
 
           <View style={styles.darkModeContainer}>
-            <Text variant="bodyLarge" style={{color: theme.colors.onSurface}}>Modo Escuro</Text>
+            <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }}>Modo Escuro</Text>
             <Switch value={isDark} onValueChange={toggleTheme} color={theme.colors.primary} />
           </View>
 
           <Button mode="outlined" onPress={() => setShowPasswordModal(true)} style={styles.buttonSpacing}>
             Alterar Senha
           </Button>
-          
+
           <Button mode="contained" onPress={handleSaveProfile} style={styles.buttonSpacing}>
             Salvar Perfil
           </Button>
 
-          <Divider style={{marginVertical: 16}} />
+          <Divider style={{ marginVertical: 16 }} />
 
-          <Button 
-            mode="outlined" 
+          <Button
+            mode="outlined"
             onPress={() => {
               setShowProfileModal(false);
               logout();
@@ -439,32 +450,48 @@ const HomeScreen: React.FC = () => {
           >
             Sair da Conta
           </Button>
+
+          <Text variant="bodySmall" style={{ textAlign: 'center', marginTop: 20, color: theme.colors.onSurfaceVariant, opacity: 0.6 }}>
+            Versão {Constants.expoConfig?.version}
+          </Text>
         </Modal>
       </Portal>
-      
-       {/* Password Modal */}
-       <Portal>
-        <Modal visible={showPasswordModal} onDismiss={() => setShowPasswordModal(false)} contentContainerStyle={[styles.modalContent, {backgroundColor: theme.colors.surface}]}>
+
+      {/* Password Modal */}
+      <Portal>
+        <Modal visible={showPasswordModal} onDismiss={() => setShowPasswordModal(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
           <Text variant="titleMedium" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Alterar Senha</Text>
           <TextInput
             label="Senha Atual"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            secureTextEntry
+            secureTextEntry={!showCurrentPassword}
             mode="outlined"
             style={styles.input}
+            right={
+              <TextInput.Icon
+                icon={showCurrentPassword ? "eye-off" : "eye"}
+                onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+              />
+            }
           />
           <TextInput
             label="Nova Senha"
             value={newPassword}
             onChangeText={setNewPassword}
-            secureTextEntry
+            secureTextEntry={!showNewPassword}
             mode="outlined"
             style={styles.input}
+            right={
+              <TextInput.Icon
+                icon={showNewPassword ? "eye-off" : "eye"}
+                onPress={() => setShowNewPassword(!showNewPassword)}
+              />
+            }
           />
           <View style={styles.modalActions}>
-             <Button onPress={() => setShowPasswordModal(false)}>Cancelar</Button>
-             <Button mode="contained" onPress={handleChangePassword}>Alterar</Button>
+            <Button onPress={() => setShowPasswordModal(false)}>Cancelar</Button>
+            <Button mode="contained" onPress={handleChangePassword}>Alterar</Button>
           </View>
         </Modal>
       </Portal>
@@ -481,8 +508,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 16,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   logoContainer: {
     flexDirection: 'row',
