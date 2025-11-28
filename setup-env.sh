@@ -50,8 +50,8 @@ if [ -z "$JWT_SECRET" ]; then
     fi
 fi
 
-read -p "GOOGLE_CLIENT_ID [380197742222-fgno8bchna4atrghfjrqp38kluhnuoag.apps.googleusercontent.com]: " GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-380197742222-fgno8bchna4atrghfjrqp38kluhnuoag.apps.googleusercontent.com}
+read -p "GOOGLE_CLIENT_ID [278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com]: " GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
 
 read -p "Porta do Backend [8085]: " PORT
 PORT=${PORT:-8085}
@@ -84,4 +84,3 @@ echo "   PORT: ${PORT}"
 echo ""
 echo "🚀 Agora você pode executar: docker-compose up -d"
 echo ""
-

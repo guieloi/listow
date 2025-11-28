@@ -7,14 +7,15 @@ import pool from '../config/database';
 import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is not defined!');
 }
 
 // Inicializar cliente Google OAuth
-const googleClient = process.env.GOOGLE_CLIENT_ID
-  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+const googleClient = GOOGLE_CLIENT_ID
+  ? new OAuth2Client(GOOGLE_CLIENT_ID)
   : null;
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -326,12 +327,18 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (!googleClient || !GOOGLE_CLIENT_ID) {
+      console.error('[GoogleLogin] GOOGLE_CLIENT_ID não configurado. Bloqueando login com Google.');
+      res.status(500).json({ error: 'Login com Google indisponível. Tente novamente mais tarde.' });
+      return;
+    }
+
     // Verificar token do Google se o cliente estiver configurado
-    if (googleClient && process.env.GOOGLE_CLIENT_ID) {
+    if (googleClient && GOOGLE_CLIENT_ID) {
       try {
         const ticket = await googleClient.verifyIdToken({
           idToken: googleToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: GOOGLE_CLIENT_ID,
         });
 
         const payload = ticket.getPayload();
@@ -351,10 +358,8 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
         console.error('Error verifying Google token:', verifyError);
         // Em desenvolvimento, podemos permitir continuar sem verificação
         // Em produção, isso deve ser obrigatório
-        if (process.env.NODE_ENV === 'production') {
-          res.status(401).json({ error: 'Falha ao verificar token do Google' });
-          return;
-        }
+        res.status(401).json({ error: 'Falha ao verificar token do Google' });
+        return;
       }
     }
 

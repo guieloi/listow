@@ -1,8 +1,19 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
+
+const WEB_CLIENT_ID =
+  Constants.expoConfig?.extra?.googleClientId ||
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+
+if (!WEB_CLIENT_ID) {
+  console.warn(
+    '[GoogleAuth] WEB_CLIENT_ID ausente. Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID no .env'
+  );
+}
 
 // Configure Google Signin
 GoogleSignin.configure({
-  webClientId: '278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com', // From your app.json
+  webClientId: WEB_CLIENT_ID || undefined,
   offlineAccess: true,
 });
 
@@ -31,6 +42,10 @@ export const signInWithGoogle = async (): Promise<{
   };
 }> => {
   try {
+    if (!WEB_CLIENT_ID) {
+      throw new Error('Google Client ID n\u00e3o configurado (EXPO_PUBLIC_GOOGLE_CLIENT_ID)');
+    }
+
     await GoogleSignin.hasPlayServices();
     const userInfo = await GoogleSignin.signIn();
 

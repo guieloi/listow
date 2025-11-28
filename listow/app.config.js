@@ -5,6 +5,11 @@ try {
   // dotenv não disponível ou arquivo .env não encontrado - usa variáveis de ambiente do sistema
 }
 
+const googleClientId =
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+  process.env.GOOGLE_CLIENT_ID ||
+  "278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com";
+
 module.exports = {
   expo: {
     name: "listow",
@@ -41,7 +46,7 @@ module.exports = {
       eas: {
         projectId: "952ef910-9741-4fe8-ac92-2f2acde007e7"
       },
-      googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com",
+      googleClientId,
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "https://app.grupoigl.online/api"
     },
     plugins: [
@@ -50,4 +55,3 @@ module.exports = {
     ]
   }
 };
-

@@ -38,6 +38,7 @@ services:
       DB_USER: ${POSTGRES_USER:-listow_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
       - "8085:8085"
     depends_on:

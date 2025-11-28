@@ -66,7 +66,7 @@ POSTGRES_PASSWORD=ALTERE_AQUI
 
 # Configurações do Backend
 JWT_SECRET=ALTERE_AQUI_GERE_UMA_CHAVE_SEGURA
-GOOGLE_CLIENT_ID=380197742222-fgno8bchna4atrghfjrqp38kluhnuoag.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com
 
 # Porta do Backend
 PORT=8085
