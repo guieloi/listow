@@ -19,17 +19,29 @@ jobs:
             cd /var/www/listow
 
             # Criar arquivo .env com as secrets do GitHub
-            # Fazemos isso DIRETAMENTE no script do workflow para garantir que os valores sejam injetados
+            # Usamos aspas no EOF para evitar expansão prematura de variáveis do shell,
+            # mas queremos que o GitHub Actions substitua as secrets.
+            # A melhor forma é passar via env do step e usar printenv ou similar,
+            # mas como estamos via SSH, vamos simplificar e usar atribuição direta com validação.
+            
             echo "Criando arquivo .env atualizado..."
+            
+            # Validação simples (os valores reais não serão mostrados nos logs do GitHub, aparecerão como ***)
+            if [ -z "${{ secrets.POSTGRES_PASSWORD }}" ] || [ -z "${{ secrets.JWT_SECRET }}" ]; then
+              echo "❌ ERRO CRÍTICO: Secrets POSTGRES_PASSWORD ou JWT_SECRET estão vazias!"
+              echo "   Verifique as configurações em Settings > Secrets and variables > Actions no GitHub."
+              # Não abortamos imediatamente para não travar o SSH, mas o deploy vai falhar depois.
+            fi
+
             cat > .env <<EOF
             # Configurações do Banco de Dados PostgreSQL
             POSTGRES_DB=listow_db
             POSTGRES_USER=listow_user
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
 
             # Configurações do Backend
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || '278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com' }}
+            JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID || '278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com' }}"
 
             # Porta do Backend
             PORT=8085
