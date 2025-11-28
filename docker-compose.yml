@@ -34,8 +34,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8085
-      # As outras variáveis virão automaticamente do env_file (.env)
-      # Isso evita problemas de substituição de variáveis no shell
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-listow_db}
+      DB_USER: ${POSTGRES_USER:-listow_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # JWT_SECRET e GOOGLE_CLIENT_ID virão do env_file (.env)
     ports:
       - "8085:8085"
     depends_on:
