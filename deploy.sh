@@ -37,9 +37,14 @@ if [ -f .env ]; then
 fi
 
 # Atualizar código
-echo "📥 Atualizando código..."
+echo "📥 Atualizando código para branch $1..."
 git fetch origin
-git reset --hard origin/main
+if [ -z "$1" ]; then
+    echo "⚠️ Nenhum branch especificado. Usando main como padrão."
+    git reset --hard origin/main
+else
+    git reset --hard origin/$1
+fi
 
 # Restaurar arquivo .env se existir backup
 if [ -f .env.backup ]; then
