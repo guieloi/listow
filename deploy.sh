@@ -23,15 +23,12 @@ if ! command -v docker-compose &> /dev/null; then
     sudo chmod +x /usr/local/bin/docker-compose
 fi
 
-# Fazer backup do banco se existir (ANTES de parar os containers)
+# Fazer backup do banco se existir
 if docker ps | grep -q "listow-postgres"; then
     echo "💾 Fazendo backup do banco..."
     # Usar -T para evitar erro de TTY em ambientes não interativos
     docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
 fi
-
-# Observação: Não fazemos mais backup/restore do .env aqui, pois ele é gerenciado pelo CI/CD (GitHub Actions)
-# que cria um novo .env com as secrets atualizadas a cada deploy.
 
 # Atualizar código
 echo "📥 Atualizando código para branch $1..."
@@ -52,25 +49,25 @@ if [ -f .env ]; then
         echo "✅ Arquivo .env contém as configurações necessárias."
     else
         echo "⚠️ Arquivo .env incompleto. Tentando recriar..."
-        if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
-             echo "❌ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não definidas para recriar o .env!"
-             exit 1
+        # Só tentamos recriar se as variáveis estiverem disponíveis
+        if [ -n "$POSTGRES_PASSWORD" ] && [ -n "$JWT_SECRET" ]; then
+            rm .env
+        else
+            echo "❌ Arquivo .env incompleto e variáveis de ambiente não disponíveis. Mantendo arquivo atual."
+            # Não falhamos aqui, tentamos seguir com o que tem
         fi
-        # Se chegamos aqui, as variáveis existem, então podemos recriar o .env (código abaixo cuidará disso)
-        rm .env
     fi
 fi
 
-# Se .env não existe (ou foi removido acima por estar incompleto), criar
+# Se .env não existe, criar (somente se variáveis estiverem disponíveis)
 if [ ! -f .env ]; then
     if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
-        echo "⚠️ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não encontradas!"
-        echo "   Verifique se as secrets estão configuradas no GitHub Actions."
-        exit 1
-    fi
-
-    echo "📝 Criando arquivo .env com as variáveis de ambiente..."
-    cat > .env << EOF
+        echo "⚠️ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não encontradas e arquivo .env não existe!"
+        echo "   O deploy falhará se o backend não tiver configuração."
+        # Não damos exit 1 aqui para permitir troubleshooting, mas avisamos
+    else
+        echo "📝 Criando arquivo .env com as variáveis de ambiente..."
+        cat > .env << EOF
 # Configurações do Banco de Dados PostgreSQL
 POSTGRES_DB=listow_db
 POSTGRES_USER=listow_user
@@ -83,55 +80,48 @@ GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm66
 # Porta do Backend
 PORT=8085
 EOF
-    echo "✅ Arquivo .env criado com sucesso!"
+        echo "✅ Arquivo .env criado com sucesso!"
+    fi
 fi
 
-# Construir e iniciar containers (Forçando rebuild para garantir npm install)
+# Construir e iniciar containers (Sem --force-recreate para ser mais rápido)
 echo "🔨 Construindo e iniciando containers..."
-docker-compose up -d --build --force-recreate
+docker-compose up -d --build
 
-# Aguardar um momento para o container tentar subir
-sleep 10
+# Aguardar containers iniciarem com verificação ativa
+echo "⏳ Aguardando API iniciar..."
+MAX_RETRIES=60
+COUNT=0
 
-# Se o container estiver reiniciando, pode ser necessário rodar npm install manualmente
-if docker ps | grep "listow-backend" | grep -q "Restarting"; then
-    echo "⚠️ Container em loop de reinício. Tentando instalar dependências..."
-    docker-compose run --rm backend npm install
-    docker-compose restart backend
-fi
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    # Tenta conectar no healthcheck
+    if curl -s -f http://localhost:8085/api/health > /dev/null; then
+        echo "✅ API iniciou com sucesso em ${COUNT}s!"
+        break
+    fi
+    
+    sleep 1
+    COUNT=$((COUNT+1))
+    
+    # Mostrar progresso a cada 5s
+    if [ $((COUNT % 5)) -eq 0 ]; then
+        echo "   ... aguardando (${COUNT}s)"
+    fi
 
-# Aguardar containers iniciarem
-echo "⏳ Aguardando containers iniciarem..."
-sleep 30
+    if [ $COUNT -eq $MAX_RETRIES ]; then
+        echo "❌ Timeout aguardando API iniciar."
+        echo "📋 Logs recentes do backend:"
+        docker-compose logs --tail=50 backend
+        # Não falhamos o script inteiro para permitir ver logs, mas avisamos erro
+        exit 1
+    fi
+done
 
-# Verificar status
+# Verificar status final
 echo "🔍 Verificando status dos containers..."
 docker-compose ps
-
-# Testar API
-echo "🧪 Testando API..."
-if curl -f http://localhost:8085/api/health; then
-    echo "✅ API funcionando corretamente!"
-else
-    echo "❌ Erro na API. Verificando logs..."
-    docker-compose logs backend
-fi
-
-# Mostrar logs
-echo "📋 Logs dos containers:"
-docker-compose logs --tail=20
 
 echo "🎉 Deploy concluído!"
 echo "📱 API disponível em: http://192.168.0.60:8085"
 echo "🔍 Health check: http://192.168.0.60:8085/api/health"
 echo "🗄️ PostgreSQL: 192.168.0.60:5432"
-echo ""
-echo "📋 Comandos úteis:"
-echo "  - Ver logs: docker-compose logs -f"
-echo "  - Parar: docker-compose down"
-echo "  - Reiniciar: docker-compose restart"
-echo "  - Atualizar: git pull && docker-compose up -d --build"
-echo ""
-echo "📱 Para configurar o app mobile:"
-echo "  Altere a URL da API em: listow/src/services/api.ts"
-echo "  const API_BASE_URL = 'http://192.168.0.60:8085/api';"

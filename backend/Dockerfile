@@ -10,11 +10,17 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
-# Instalar todas as dependências
+# Instalar todas as dependências (incluindo devDependencies para build)
 RUN npm ci
 
 # Copiar código fonte
 COPY . .
+
+# Build da aplicação (TypeScript -> JavaScript)
+RUN npm run build
+
+# Remover dependências de desenvolvimento para deixar a imagem menor
+RUN npm prune --production
 
 # Expor porta
 EXPOSE 8085
@@ -29,5 +35,5 @@ RUN chown -R listow:nodejs /app
 # Mudar para usuário não-root
 USER listow
 
-# Comando para iniciar aplicação
-CMD ["npm", "start"]
+# Comando para iniciar aplicação em produção
+CMD ["npm", "run", "start:prod"]
