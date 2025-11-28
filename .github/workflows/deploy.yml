@@ -19,9 +19,19 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           port: ${{ secrets.PORT }}
-          envs: POSTGRES_PASSWORD,JWT_SECRET,GOOGLE_CLIENT_ID
           script: |
             cd /var/www/listow
+            
+            # Definir variáveis a partir dos argumentos passados (não confie no env do SSH)
+            # Usaremos placeholders que serão substituídos pelo GitHub Actions antes de enviar o script
+            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+            
+            # Se GOOGLE_CLIENT_ID estiver vazio, usar valor padrão
+            if [ -z "$GOOGLE_CLIENT_ID" ]; then
+              GOOGLE_CLIENT_ID="278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com"
+            fi
 
             # Criar/Atualizar arquivo .env com as secrets
             echo "Criando arquivo .env com variáveis de ambiente..."
@@ -33,11 +43,16 @@ jobs:
 
             # Configurações do Backend
             JWT_SECRET=$JWT_SECRET
-            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
+            GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
 
             # Porta do Backend
             PORT=8085
             EOF
+
+            # Exportar variáveis para garantir que o deploy.sh as veja
+            export POSTGRES_PASSWORD
+            export JWT_SECRET
+            export GOOGLE_CLIENT_ID
 
             # O deploy.sh já faz git fetch e git reset --hard, então não precisa fazer aqui
             chmod +x deploy.sh

@@ -30,11 +30,8 @@ if docker ps | grep -q "listow-postgres"; then
     docker-compose exec -T postgres pg_dump -U listow_user listow_db > backup_$(date +%Y%m%d_%H%M%S).sql
 fi
 
-# Preservar arquivo .env se existir
-if [ -f .env ]; then
-    echo "💾 Preservando arquivo .env..."
-    cp .env .env.backup
-fi
+# Observação: Não fazemos mais backup/restore do .env aqui, pois ele é gerenciado pelo CI/CD (GitHub Actions)
+# que cria um novo .env com as secrets atualizadas a cada deploy.
 
 # Atualizar código
 echo "📥 Atualizando código para branch $1..."
@@ -46,23 +43,34 @@ else
     git reset --hard origin/$1
 fi
 
-# Restaurar arquivo .env se existir backup
-if [ -f .env.backup ]; then
-    echo "🔄 Restaurando arquivo .env..."
-    mv .env.backup .env
+# Verificar se .env existe
+if [ -f .env ]; then
+    echo "✅ Arquivo .env encontrado."
+    
+    # Verificar se o .env tem as variáveis críticas
+    if grep -q "POSTGRES_PASSWORD=" .env && grep -q "JWT_SECRET=" .env; then
+        echo "✅ Arquivo .env contém as configurações necessárias."
+    else
+        echo "⚠️ Arquivo .env incompleto. Tentando recriar..."
+        if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
+             echo "❌ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não definidas para recriar o .env!"
+             exit 1
+        fi
+        # Se chegamos aqui, as variáveis existem, então podemos recriar o .env (código abaixo cuidará disso)
+        rm .env
+    fi
 fi
 
-# Verificar se .env existe e se as variáveis de ambiente estão definidas
-if [ ! -f .env ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
+# Se .env não existe (ou foi removido acima por estar incompleto), criar
+if [ ! -f .env ]; then
     if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
         echo "⚠️ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não encontradas!"
         echo "   Verifique se as secrets estão configuradas no GitHub Actions."
         exit 1
     fi
 
-    if [ ! -f .env ]; then
-        echo "📝 Criando arquivo .env com as variáveis de ambiente..."
-        cat > .env << EOF
+    echo "📝 Criando arquivo .env com as variáveis de ambiente..."
+    cat > .env << EOF
 # Configurações do Banco de Dados PostgreSQL
 POSTGRES_DB=listow_db
 POSTGRES_USER=listow_user
@@ -75,30 +83,7 @@ GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm66
 # Porta do Backend
 PORT=8085
 EOF
-        echo "✅ Arquivo .env criado com sucesso!"
-    else
-        echo "🔄 Atualizando arquivo .env com as variáveis de ambiente..."
-        # Backup do arquivo atual
-        cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
-
-        # Recriar .env com as novas variáveis
-        cat > .env << EOF
-# Configurações do Banco de Dados PostgreSQL
-POSTGRES_DB=listow_db
-POSTGRES_USER=listow_user
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-
-# Configurações do Backend
-JWT_SECRET=$JWT_SECRET
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
-
-# Porta do Backend
-PORT=8085
-EOF
-        echo "✅ Arquivo .env atualizado com sucesso!"
-    fi
-else
-    echo "✅ Arquivo .env já existe e variáveis de ambiente estão definidas."
+    echo "✅ Arquivo .env criado com sucesso!"
 fi
 
 # Construir e iniciar containers (Forçando rebuild para garantir npm install)
