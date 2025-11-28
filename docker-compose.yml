@@ -39,6 +39,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+    volumes:
+      - ./.env:/app/.env:ro  # Montar arquivo .env como somente leitura
     ports:
       - "8085:8085"
     depends_on:
