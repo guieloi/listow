@@ -40,53 +40,32 @@ else
     git reset --hard origin/$1
 fi
 
-# Verificar se .env existe
+# Verificar se .env existe e tentar carregar
 if [ -f .env ]; then
     echo "✅ Arquivo .env encontrado."
     
-    # Verificar se o .env tem as variáveis críticas
-    if grep -q "POSTGRES_PASSWORD=" .env && grep -q "JWT_SECRET=" .env; then
-        echo "✅ Arquivo .env contém as configurações necessárias."
+    # Debug: Verificar se o arquivo tem conteúdo (sem mostrar senhas)
+    echo "🔍 Verificando conteúdo do .env..."
+    if grep -q "JWT_SECRET=" .env; then
+        echo "   - JWT_SECRET encontrado no arquivo."
     else
-        echo "⚠️ Arquivo .env incompleto. Tentando recriar..."
-        # Só tentamos recriar se as variáveis estiverem disponíveis
-        if [ -n "$POSTGRES_PASSWORD" ] && [ -n "$JWT_SECRET" ]; then
-            rm .env
-        else
-            echo "❌ Arquivo .env incompleto e variáveis de ambiente não disponíveis. Mantendo arquivo atual."
-            # Não falhamos aqui, tentamos seguir com o que tem
-        fi
+        echo "   ❌ JWT_SECRET NÃO encontrado no arquivo .env!"
     fi
+    
+    # Carregar variáveis do .env para o ambiente atual
+    # Isso garante que o docker-compose consiga fazer a substituição ${VAR}
+    echo "📥 Carregando variáveis de ambiente do .env..."
+    set -a
+    source .env
+    set +a
+else
+    echo "❌ Arquivo .env não encontrado! O deploy pode falhar."
 fi
 
-# Se .env não existe, criar (somente se variáveis estiverem disponíveis)
-if [ ! -f .env ]; then
-    if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
-        echo "⚠️ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não encontradas e arquivo .env não existe!"
-        echo "   O deploy falhará se o backend não tiver configuração."
-        # Não damos exit 1 aqui para permitir troubleshooting, mas avisamos
-    else
-        echo "📝 Criando arquivo .env com as variáveis de ambiente..."
-        cat > .env << EOF
-# Configurações do Banco de Dados PostgreSQL
-POSTGRES_DB=listow_db
-POSTGRES_USER=listow_user
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-
-# Configurações do Backend
-JWT_SECRET=$JWT_SECRET
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
-
-# Porta do Backend
-PORT=8085
-EOF
-        echo "✅ Arquivo .env criado com sucesso!"
-    fi
-fi
-
-# Construir e iniciar containers (Sem --force-recreate para ser mais rápido)
+# Construir e iniciar containers
 echo "🔨 Construindo e iniciando containers..."
-docker-compose up -d --build
+# --env-file garante que o docker-compose leia o arquivo
+docker-compose --env-file .env up -d --build
 
 # Aguardar containers iniciarem com verificação ativa
 echo "⏳ Aguardando API iniciar..."
@@ -112,7 +91,6 @@ while [ $COUNT -lt $MAX_RETRIES ]; do
         echo "❌ Timeout aguardando API iniciar."
         echo "📋 Logs recentes do backend:"
         docker-compose logs --tail=50 backend
-        # Não falhamos o script inteiro para permitir ver logs, mas avisamos erro
         exit 1
     fi
 done
