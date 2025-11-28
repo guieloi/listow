@@ -4,10 +4,10 @@ services:
     image: postgres:15-alpine
     container_name: listow-postgres
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-listow_db}
-      POSTGRES_USER: ${POSTGRES_USER:-listow_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Override específico se necessário, ou variáveis que não estão no .env
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -29,16 +29,13 @@ services:
       dockerfile: Dockerfile
     container_name: listow-backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: 8085
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-listow_db}
-      DB_USER: ${POSTGRES_USER:-listow_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      # As outras variáveis virão automaticamente do env_file (.env)
+      # Isso evita problemas de substituição de variáveis no shell
     ports:
       - "8085:8085"
     depends_on:
