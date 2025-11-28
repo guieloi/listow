@@ -39,7 +39,6 @@ jobs:
             PORT=8085
             EOF
 
-            git fetch origin
-            git reset --hard origin/${{ github.ref_name }}
+            # O deploy.sh já faz git fetch e git reset --hard, então não precisa fazer aqui
             chmod +x deploy.sh
             ./deploy.sh ${{ github.ref_name }}

@@ -39,12 +39,12 @@ jobs:
           gradle-version: wrapper
 
       - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+        working-directory: ./listow/android
+        run: chmod +x gradlew
 
       - name: Build Android Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease
+        working-directory: ./listow/android
+        run: ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
