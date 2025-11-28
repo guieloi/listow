@@ -10,13 +10,35 @@ jobs:
     steps:
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           port: ${{ secrets.PORT }}
+          envs: POSTGRES_PASSWORD,JWT_SECRET,GOOGLE_CLIENT_ID
           script: |
             cd /var/www/listow
+
+            # Criar/Atualizar arquivo .env com as secrets
+            echo "Criando arquivo .env com variáveis de ambiente..."
+            cat > .env <<EOF
+            # Configurações do Banco de Dados PostgreSQL
+            POSTGRES_DB=listow_db
+            POSTGRES_USER=listow_user
+            POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+
+            # Configurações do Backend
+            JWT_SECRET=$JWT_SECRET
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
+
+            # Porta do Backend
+            PORT=8085
+            EOF
+
             git fetch origin
             git reset --hard origin/${{ github.ref_name }}
             chmod +x deploy.sh

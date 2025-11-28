@@ -52,34 +52,53 @@ if [ -f .env.backup ]; then
     mv .env.backup .env
 fi
 
-# Verificar se .env existe, se não, criar a partir do exemplo
-if [ ! -f .env ]; then
-    echo "⚠️ Arquivo .env não encontrado!"
-    if [ -f .env.example ]; then
-        echo "📝 Criando .env a partir do .env.example..."
-        cp .env.example .env
-        echo "⚠️ IMPORTANTE: Edite o arquivo .env com as configurações corretas antes de continuar!"
-        echo "   Execute: nano .env"
+# Verificar se .env existe e se as variáveis de ambiente estão definidas
+if [ ! -f .env ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
+    if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
+        echo "⚠️ Variáveis de ambiente POSTGRES_PASSWORD e/ou JWT_SECRET não encontradas!"
+        echo "   Verifique se as secrets estão configuradas no GitHub Actions."
         exit 1
-    else
-        echo "❌ Arquivo .env.example não encontrado. Criando .env básico..."
+    fi
+
+    if [ ! -f .env ]; then
+        echo "📝 Criando arquivo .env com as variáveis de ambiente..."
         cat > .env << EOF
 # Configurações do Banco de Dados PostgreSQL
 POSTGRES_DB=listow_db
 POSTGRES_USER=listow_user
-POSTGRES_PASSWORD=ALTERE_AQUI
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 
 # Configurações do Backend
-JWT_SECRET=ALTERE_AQUI_GERE_UMA_CHAVE_SEGURA
-GOOGLE_CLIENT_ID=278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com
+JWT_SECRET=$JWT_SECRET
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
 
 # Porta do Backend
 PORT=8085
 EOF
-        echo "⚠️ IMPORTANTE: Edite o arquivo .env com as configurações corretas antes de continuar!"
-        echo "   Execute: nano .env"
-        exit 1
+        echo "✅ Arquivo .env criado com sucesso!"
+    else
+        echo "🔄 Atualizando arquivo .env com as variáveis de ambiente..."
+        # Backup do arquivo atual
+        cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+        # Recriar .env com as novas variáveis
+        cat > .env << EOF
+# Configurações do Banco de Dados PostgreSQL
+POSTGRES_DB=listow_db
+POSTGRES_USER=listow_user
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+
+# Configurações do Backend
+JWT_SECRET=$JWT_SECRET
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-278950160388-9iavu1duamc7lofv9a34a356a5dm6637.apps.googleusercontent.com}
+
+# Porta do Backend
+PORT=8085
+EOF
+        echo "✅ Arquivo .env atualizado com sucesso!"
     fi
+else
+    echo "✅ Arquivo .env já existe e variáveis de ambiente estão definidas."
 fi
 
 # Construir e iniciar containers (Forçando rebuild para garantir npm install)
