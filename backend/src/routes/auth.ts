@@ -29,15 +29,6 @@ router.post('/login', (req: Request, res: Response, next: NextFunction) => {
   next();
 }, loginValidation, authController.login);
 
-router.post('/google', (req: Request, res: Response, next: NextFunction) => {
-  console.log('🔐 Google login route hit from:', req.ip);
-  next();
-}, authController.googleLogin);
-
-router.get('/profile', authenticateToken, authController.getProfile);
-router.get('/user/:id', authenticateToken, authController.getUserById);
-
-// New routes for profile update and password change
 router.put(
   '/profile',
   authenticateToken,

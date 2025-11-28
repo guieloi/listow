@@ -19,7 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types';
-import { signInWithGoogle } from '../services/googleAuth';
+
 import { AppTheme } from '../theme';
 import LogoSVG from '../components/LogoSVG';
 
@@ -30,9 +30,9 @@ const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
   const emailRef = useRef(email);
-  const { login, loginWithGoogle, isLoading } = useAuth();
+  const { login, isLoading } = useAuth();
   const navigation = useNavigation<LoginScreenNavigationProp>();
 
   useEffect(() => {
@@ -54,26 +54,7 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      setIsGoogleLoading(true);
-      const googleData = await signInWithGoogle();
-      await loginWithGoogle(googleData);
-    } catch (error: any) {
-      // Ignorar erros de cancelamento ou falta de token (comum ao fechar o modal)
-      if (
-        error.message === 'Autenticação cancelada pelo usuário' ||
-        error.message === 'No idToken returned from Google Sign-In' ||
-        error.code === 'SIGN_IN_CANCELLED'
-      ) {
-        console.log('Login Google cancelado ou incompleto');
-        return;
-      }
-      Alert.alert('Erro', error.message || 'Erro ao fazer login com Google');
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
+
 
   return (
     <KeyboardAvoidingView
@@ -130,23 +111,9 @@ const LoginScreen: React.FC = () => {
             Entrar
           </Button>
 
-          <View style={styles.dividerContainer}>
-            <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
-            <Text variant="bodySmall" style={{ marginHorizontal: 8, color: theme.colors.outline }}>OU</Text>
-            <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />
-          </View>
 
-          <Button
-            mode="outlined"
-            onPress={handleGoogleLogin}
-            loading={isGoogleLoading}
-            disabled={isLoading || isGoogleLoading}
-            icon="google"
-            style={[styles.googleButton, { borderColor: theme.colors.outline }]}
-            textColor={theme.colors.onSurface}
-          >
-            Entrar com Google
-          </Button>
+
+
         </Surface>
 
         <View style={styles.footer}>

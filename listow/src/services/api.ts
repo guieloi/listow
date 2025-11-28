@@ -9,9 +9,9 @@ import syncService from './syncService';
 // Backend em produção hospedado em: https://app.grupoigl.online
 // Para desenvolvimento local, altere para: 'http://10.0.2.2:8085/api' (Android Emulator)
 // ou 'http://192.168.15.194:8085/api' (dispositivo físico com IP da sua máquina)
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 
-                     process.env.EXPO_PUBLIC_API_BASE_URL || 
-                     'https://app.grupoigl.online/api'; // ← PRODUÇÃO (fallback)
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  'https://app.grupoigl.online/api'; // ← PRODUÇÃO (fallback)
 // Para uso no navegador ou iOS Simulator, use: 'http://localhost:8085/api'
 
 class ApiService {
@@ -72,16 +72,7 @@ class ApiService {
     return response.data;
   }
 
-  async loginWithGoogle(googleToken: string, googleId: string, email: string, name: string, photoUrl?: string): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/google', {
-      googleToken,
-      googleId,
-      email,
-      name,
-      photoUrl,
-    });
-    return response.data;
-  }
+
 
   async getProfile(): Promise<User> {
     const response: AxiosResponse<{ user: User }> = await this.api.get('/auth/profile');

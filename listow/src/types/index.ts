@@ -109,16 +109,7 @@ export interface AuthContextType {
   isAuthLoading: boolean; // Novo estado para carregamento inicial
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  loginWithGoogle: (googleData: {
-    accessToken: string;
-    idToken: string;
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      photo?: string;
-    };
-  }) => Promise<void>;
+
   logout: () => void;
   isAuthenticated: boolean;
 }

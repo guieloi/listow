@@ -2,21 +2,18 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
-import { OAuth2Client } from 'google-auth-library';
+
 import pool from '../config/database';
 import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is not defined!');
 }
 
-// Inicializar cliente Google OAuth
-const googleClient = GOOGLE_CLIENT_ID
-  ? new OAuth2Client(GOOGLE_CLIENT_ID)
-  : null;
+
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -316,116 +313,3 @@ export const savePushToken = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const googleLogin = async (req: Request, res: Response): Promise<void> => {
-  try {
-    console.log('🔐 Google login attempt from:', req.ip);
-
-    const { googleToken, googleId, email, name, photoUrl } = req.body;
-
-    if (!googleToken || !googleId || !email || !name) {
-      res.status(400).json({ error: 'Dados do Google incompletos' });
-      return;
-    }
-
-    if (!googleClient || !GOOGLE_CLIENT_ID) {
-      console.error('[GoogleLogin] GOOGLE_CLIENT_ID não configurado. Bloqueando login com Google.');
-      res.status(500).json({ error: 'Login com Google indisponível. Tente novamente mais tarde.' });
-      return;
-    }
-
-    // Verificar token do Google se o cliente estiver configurado
-    if (googleClient && GOOGLE_CLIENT_ID) {
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken: googleToken,
-          audience: GOOGLE_CLIENT_ID,
-        });
-
-        const payload = ticket.getPayload();
-        if (!payload || payload.sub !== googleId) {
-          console.log('❌ Invalid Google token:', { payloadSub: payload?.sub, googleId });
-          res.status(401).json({ error: 'Token do Google inválido' });
-          return;
-        }
-
-        // Validar que o email corresponde
-        if (payload.email !== email) {
-          console.log('❌ Email mismatch:', { payloadEmail: payload.email, providedEmail: email });
-          res.status(401).json({ error: 'Email não corresponde ao token do Google' });
-          return;
-        }
-      } catch (verifyError) {
-        console.error('Error verifying Google token:', verifyError);
-        // Em desenvolvimento, podemos permitir continuar sem verificação
-        // Em produção, isso deve ser obrigatório
-        res.status(401).json({ error: 'Falha ao verificar token do Google' });
-        return;
-      }
-    }
-
-    // Verificar se usuário já existe
-    let result = await pool.query(
-      'SELECT id, name, email, google_id, photo_url, created_at, updated_at FROM users WHERE google_id = $1 OR email = $2',
-      [googleId, email]
-    );
-
-    let user;
-    if (result.rows.length > 0) {
-      // Usuário existe
-      user = result.rows[0];
-
-      // Se não tem google_id, atualizar (caso de conta criada com email/senha que agora usa Google)
-      if (!user.google_id) {
-        await pool.query(
-          'UPDATE users SET google_id = $1, photo_url = COALESCE($2, photo_url), updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-          [googleId, photoUrl || null, user.id]
-        );
-        // Buscar usuário atualizado
-        const updatedResult = await pool.query(
-          'SELECT id, name, email, google_id, photo_url, created_at, updated_at FROM users WHERE id = $1',
-          [user.id]
-        );
-        user = updatedResult.rows[0];
-      } else if (photoUrl && user.photo_url !== photoUrl) {
-        // Atualizar foto se fornecida e diferente
-        await pool.query(
-          'UPDATE users SET photo_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [photoUrl, user.id]
-        );
-        user.photo_url = photoUrl;
-      }
-    } else {
-      // Criar novo usuário
-      const insertResult = await pool.query(
-        'INSERT INTO users (name, email, google_id, photo_url) VALUES ($1, $2, $3, $4) RETURNING id, name, email, google_id, photo_url, created_at, updated_at',
-        [name, email, googleId, photoUrl || null]
-      );
-      user = insertResult.rows[0];
-      console.log('✅ New user created via Google:', email);
-    }
-
-    // Gerar JWT token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      String(JWT_SECRET),
-    );
-
-    const authResponse: AuthResponse = {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        google_id: user.google_id,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      },
-      token
-    };
-
-    console.log('✅ Google login successful for:', email);
-    res.json(authResponse);
-  } catch (error) {
-    console.error('Error in Google login:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-};
