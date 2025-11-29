@@ -11,18 +11,18 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { 
-  Text, 
-  useTheme, 
-  Checkbox, 
-  IconButton, 
-  TextInput, 
-  FAB, 
-  Surface, 
-  Portal, 
-  Modal, 
-  Button, 
-  Divider, 
+import {
+  Text,
+  useTheme,
+  Checkbox,
+  IconButton,
+  TextInput,
+  FAB,
+  Surface,
+  Portal,
+  Modal,
+  Button,
+  Divider,
   Snackbar,
   Icon
 } from 'react-native-paper';
@@ -93,11 +93,11 @@ const ListDetailsScreen: React.FC = () => {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Quick Add State
   const [newItemText, setNewItemText] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  
+
   // Modals State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
@@ -107,7 +107,7 @@ const ListDetailsScreen: React.FC = () => {
 
   // Action State
   const [longPressedItemId, setLongPressedItemId] = useState<number | null>(null);
-  
+
   // Undo Delete State
   const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
   const [showSnackbar, setShowSnackbar] = useState(false);
@@ -187,7 +187,7 @@ const ListDetailsScreen: React.FC = () => {
 
   const handleToggleItem = async (item: ShoppingItem) => {
     // Optimistic update
-    const updatedItems = items.map(i => 
+    const updatedItems = items.map(i =>
       i.id === item.id ? { ...i, is_completed: !i.is_completed } : i
     );
     setItems(sortItems(updatedItems));
@@ -195,10 +195,11 @@ const ListDetailsScreen: React.FC = () => {
     try {
       await apiService.toggleItem(item.id);
       // Background sync optional here if needed
-    } catch (error) {
+    } catch (error: any) {
       // Revert on error
-      setItems(sortItems(items)); 
-      Alert.alert('Erro', 'Erro ao atualizar item');
+      setItems(sortItems(items));
+      const errorMessage = error.response?.data?.error || 'Erro ao atualizar item';
+      Alert.alert('Erro', errorMessage);
     }
   };
 
@@ -220,7 +221,7 @@ const ListDetailsScreen: React.FC = () => {
     try {
       const updateData: any = { name: editName.trim(), quantity, price };
       const updatedItem = await apiService.updateItem(editingItem.id, updateData);
-      
+
       setItems(prev => prev.map(i => i.id === editingItem.id ? validateItem(updatedItem) : i));
       setShowEditModal(false);
       setEditingItem(null);
@@ -231,47 +232,47 @@ const ListDetailsScreen: React.FC = () => {
 
   const handleDeleteItem = (item: ShoppingItem) => {
     setLongPressedItemId(null);
-    
+
     // Cancelar qualquer exclusão pendente anterior imediatamente para evitar conflitos
     if (deleteTimeoutRef.current) {
-        clearTimeout(deleteTimeoutRef.current);
-        // Se havia um item pendente, infelizmente ele será perdido ou deletado dependendo da lógica. 
-        // Para simplificar, assumimos que o usuário foca em uma ação por vez ou finalizamos a anterior.
-        // Aqui vamos finalizar a anterior (deletar de fato) se houver, mas como o estado deletedItem é único, 
-        // vamos apenas substituir pelo novo.
+      clearTimeout(deleteTimeoutRef.current);
+      // Se havia um item pendente, infelizmente ele será perdido ou deletado dependendo da lógica. 
+      // Para simplificar, assumimos que o usuário foca em uma ação por vez ou finalizamos a anterior.
+      // Aqui vamos finalizar a anterior (deletar de fato) se houver, mas como o estado deletedItem é único, 
+      // vamos apenas substituir pelo novo.
     }
 
     // Salvar item para possível restauração
     setDeletedItem(item);
-    
+
     // Remover visualmente
     setItems(prev => prev.filter(i => i.id !== item.id));
-    
+
     // Mostrar Snackbar
     setShowSnackbar(true);
 
     // Agendar exclusão na API
     deleteTimeoutRef.current = setTimeout(async () => {
-        try {
-            await apiService.deleteItem(item.id);
-            // Sucesso silencioso
-        } catch (error) {
-            console.error("Erro ao excluir item no servidor", error);
-            // Opcional: avisar usuário ou tentar novamente
-        }
-        setDeletedItem(null); // Limpar referência
+      try {
+        await apiService.deleteItem(item.id);
+        // Sucesso silencioso
+      } catch (error) {
+        console.error("Erro ao excluir item no servidor", error);
+        // Opcional: avisar usuário ou tentar novamente
+      }
+      setDeletedItem(null); // Limpar referência
     }, 3000); // 3 segundos
   };
 
   const handleUndoDelete = () => {
     if (deleteTimeoutRef.current) {
-        clearTimeout(deleteTimeoutRef.current);
-        deleteTimeoutRef.current = null;
+      clearTimeout(deleteTimeoutRef.current);
+      deleteTimeoutRef.current = null;
     }
-    
+
     if (deletedItem) {
-        setItems(prev => sortItems([...prev, deletedItem]));
-        setDeletedItem(null);
+      setItems(prev => sortItems([...prev, deletedItem]));
+      setDeletedItem(null);
     }
     setShowSnackbar(false);
   };
@@ -286,27 +287,27 @@ const ListDetailsScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: ShoppingItem }) => {
     const isLongPressed = longPressedItemId === item.id;
-    
+
     return (
-      <Surface 
+      <Surface
         style={[
-          styles.itemContainer, 
+          styles.itemContainer,
           { backgroundColor: theme.colors.surface },
           item.is_completed && { backgroundColor: theme.colors.surfaceVariant }
-        ]} 
+        ]}
         elevation={0}
       >
-        <TouchableOpacity 
-            style={styles.itemTouchable}
-            onPress={() => {
-              if (isLongPressed) setLongPressedItemId(null);
-              else handleToggleItem(item);
-            }}
-            onLongPress={() => setLongPressedItemId(item.id)}
-            delayLongPress={300}
-            activeOpacity={0.7}
+        <TouchableOpacity
+          style={styles.itemTouchable}
+          onPress={() => {
+            if (isLongPressed) setLongPressedItemId(null);
+            else handleToggleItem(item);
+          }}
+          onLongPress={() => setLongPressedItemId(item.id)}
+          delayLongPress={300}
+          activeOpacity={0.7}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => handleToggleItem(item)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -321,40 +322,40 @@ const ListDetailsScreen: React.FC = () => {
               )}
             </View>
           </TouchableOpacity>
-          
+
           <View style={styles.itemContent}>
-            <Text 
-              variant="bodyLarge" 
+            <Text
+              variant="bodyLarge"
               style={[
-                styles.itemName, 
+                styles.itemName,
                 item.is_completed && { color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }
               ]}
             >
               {item.name}
             </Text>
-            
+
             <View style={styles.itemMeta}>
-               {item.quantity ? (
-                 <View style={[styles.miniChip, { backgroundColor: theme.colors.secondaryContainer }]}>
-                    <Text style={[styles.miniChipText, { color: theme.colors.onSecondaryContainer }]}>
-                        {item.quantity} {item.unit}
-                    </Text>
-                 </View>
-               ) : null}
-               {item.price ? (
-                 <View style={[styles.miniChip, { backgroundColor: theme.colors.primaryContainer }]}>
-                    <Text style={[styles.miniChipText, { color: theme.colors.onPrimaryContainer }]}>
-                        {formatPrice(item.price)}
-                    </Text>
-                 </View>
-               ) : null}
+              {item.quantity ? (
+                <View style={[styles.miniChip, { backgroundColor: theme.colors.secondaryContainer }]}>
+                  <Text style={[styles.miniChipText, { color: theme.colors.onSecondaryContainer }]}>
+                    {item.quantity} {item.unit}
+                  </Text>
+                </View>
+              ) : null}
+              {item.price ? (
+                <View style={[styles.miniChip, { backgroundColor: theme.colors.primaryContainer }]}>
+                  <Text style={[styles.miniChipText, { color: theme.colors.onPrimaryContainer }]}>
+                    {formatPrice(item.price)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
           {isLongPressed && (
             <View style={styles.actionButtons}>
-               <IconButton icon="pencil" size={20} onPress={() => handleEditItem(item)} />
-               <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => handleDeleteItem(item)} />
+              <IconButton icon="pencil" size={20} onPress={() => handleEditItem(item)} />
+              <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => handleDeleteItem(item)} />
             </View>
           )}
         </TouchableOpacity>
@@ -367,9 +368,9 @@ const ListDetailsScreen: React.FC = () => {
   const completedCount = items.filter(i => i.is_completed).length;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{flex: 1}}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        
+
         {/* Quick Add Bar */}
         <Surface style={[styles.addBar, { backgroundColor: theme.colors.surface }]} elevation={2}>
           <TextInput
@@ -383,30 +384,30 @@ const ListDetailsScreen: React.FC = () => {
             dense
           />
           {suggestions.length > 0 && (
-             <Surface style={[styles.suggestions, { backgroundColor: theme.colors.surface }]} elevation={4}>
-               {suggestions.map((s, i) => (
-                 <TouchableOpacity 
-                   key={i} 
-                   onPress={() => { setNewItemText(s); handleAddItem(); }} 
-                   style={[styles.suggestionItem, { borderBottomColor: theme.colors.outline }]}
-                 >
-                   <Text style={{ color: theme.colors.onSurface }}>{s}</Text>
-                 </TouchableOpacity>
-               ))}
-             </Surface>
+            <Surface style={[styles.suggestions, { backgroundColor: theme.colors.surface }]} elevation={4}>
+              {suggestions.map((s, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => { setNewItemText(s); handleAddItem(); }}
+                  style={[styles.suggestionItem, { borderBottomColor: theme.colors.outline }]}
+                >
+                  <Text style={{ color: theme.colors.onSurface }}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </Surface>
           )}
         </Surface>
 
         {/* Summary */}
         <View style={styles.summary}>
-           <Text variant="bodyMedium" style={{color: theme.colors.onSurfaceVariant}}>
-             {completedCount}/{items.length} concluídos
-           </Text>
-           {totalValue > 0 && (
-             <Text variant="titleMedium" style={{color: theme.colors.primary, fontWeight: 'bold'}}>
-               Total: R$ {totalValue.toFixed(2)}
-             </Text>
-           )}
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+            {completedCount}/{items.length} concluídos
+          </Text>
+          {totalValue > 0 && (
+            <Text variant="titleMedium" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+              Total: R$ {totalValue.toFixed(2)}
+            </Text>
+          )}
         </View>
 
         {loading ? (
@@ -422,7 +423,7 @@ const ListDetailsScreen: React.FC = () => {
             contentContainerStyle={{ paddingBottom: 80 }}
             ListEmptyComponent={
               <View style={styles.centered}>
-                <Text variant="bodyLarge" style={{color: theme.colors.onSurfaceVariant, marginTop: 40}}>
+                <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, marginTop: 40 }}>
                   Lista vazia. Adicione itens acima!
                 </Text>
               </View>
@@ -433,36 +434,36 @@ const ListDetailsScreen: React.FC = () => {
         {/* Edit Modal */}
         <Portal>
           <Modal visible={showEditModal} onDismiss={() => setShowEditModal(false)} contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}>
-             <Text variant="titleLarge" style={{marginBottom: 16, color: theme.colors.onSurface}}>Editar Item</Text>
-             <TextInput label="Nome" value={editName} onChangeText={setEditName} mode="outlined" style={styles.input} />
-             <View style={styles.row}>
-                <TextInput label="Qtd" value={editQuantity} onChangeText={setEditQuantity} keyboardType="numeric" mode="outlined" style={[styles.input, {flex: 1, marginRight: 8}]} />
-                <TextInput label="Preço" value={editPrice} onChangeText={(t) => setEditPrice(formatPriceMask(t))} keyboardType="numeric" mode="outlined" style={[styles.input, {flex: 1}]} />
-             </View>
-             <View style={styles.modalActions}>
-               <Button onPress={() => setShowEditModal(false)}>Cancelar</Button>
-               <Button mode="contained" onPress={handleSaveEdit}>Salvar</Button>
-             </View>
+            <Text variant="titleLarge" style={{ marginBottom: 16, color: theme.colors.onSurface }}>Editar Item</Text>
+            <TextInput label="Nome" value={editName} onChangeText={setEditName} mode="outlined" style={styles.input} />
+            <View style={styles.row}>
+              <TextInput label="Qtd" value={editQuantity} onChangeText={setEditQuantity} keyboardType="numeric" mode="outlined" style={[styles.input, { flex: 1, marginRight: 8 }]} />
+              <TextInput label="Preço" value={editPrice} onChangeText={(t) => setEditPrice(formatPriceMask(t))} keyboardType="numeric" mode="outlined" style={[styles.input, { flex: 1 }]} />
+            </View>
+            <View style={styles.modalActions}>
+              <Button onPress={() => setShowEditModal(false)}>Cancelar</Button>
+              <Button mode="contained" onPress={handleSaveEdit}>Salvar</Button>
+            </View>
           </Modal>
         </Portal>
 
         <Snackbar
-            visible={showSnackbar}
-            onDismiss={() => {
-                // Se o snackbar fechar sozinho (timeout do paper), não fazemos nada aqui 
-                // pois o timeout do setTimeout cuidará da deleção.
-                // Apenas atualizamos o estado visual.
-                setShowSnackbar(false);
-            }}
-            duration={3000}
-            action={{
-                label: 'Desfazer',
-                onPress: handleUndoDelete,
-                textColor: theme.colors.primary,
-            }}
-            style={{ marginBottom: 80 }} // Acima do FAB/Input
+          visible={showSnackbar}
+          onDismiss={() => {
+            // Se o snackbar fechar sozinho (timeout do paper), não fazemos nada aqui 
+            // pois o timeout do setTimeout cuidará da deleção.
+            // Apenas atualizamos o estado visual.
+            setShowSnackbar(false);
+          }}
+          duration={3000}
+          action={{
+            label: 'Desfazer',
+            onPress: handleUndoDelete,
+            textColor: theme.colors.primary,
+          }}
+          style={{ marginBottom: 80 }} // Acima do FAB/Input
         >
-            Item excluído.
+          Item excluído.
         </Snackbar>
 
       </View>
