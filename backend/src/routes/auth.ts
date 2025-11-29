@@ -50,4 +50,14 @@ router.put(
 
 router.post('/save-token', authenticateToken, authController.savePushToken);
 
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido')
+], authController.forgotPassword);
+
+router.post('/reset-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Código deve ter 6 dígitos'),
+  body('newPassword').isLength({ min: 6 }).withMessage('Nova senha deve ter no mínimo 6 caracteres')
+], authController.resetPassword);
+
 export default router;

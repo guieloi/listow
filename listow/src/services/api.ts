@@ -119,6 +119,14 @@ class ApiService {
     await this.api.post('/auth/save-token', { token });
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    await this.api.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    await this.api.post('/auth/reset-password', { email, code, newPassword });
+  }
+
   // Shopping Lists endpoints
   async getLists(): Promise<ShoppingList[]> {
     const state = await NetInfo.fetch();

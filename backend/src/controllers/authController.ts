@@ -313,3 +313,103 @@ export const savePushToken = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'Email é obrigatório' });
+      return;
+    }
+
+    // Check if user exists
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+
+    if (userResult.rows.length === 0) {
+      // Don't reveal if user exists or not for security
+      res.json({ message: 'Se o email existir, um código de recuperação será enviado.' });
+      return;
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set expiration to 15 minutes from now
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    // Invalidate any previous unused codes for this email
+    await pool.query('UPDATE password_resets SET used = true WHERE email = $1 AND used = false', [email]);
+
+    // Save code to database
+    await pool.query(
+      'INSERT INTO password_resets (email, token, expires_at) VALUES ($1, $2, $3)',
+      [email, code, expiresAt]
+    );
+
+    // Send email
+    const { sendPasswordResetEmail } = require('../services/emailService');
+    await sendPasswordResetEmail(email, code);
+
+    res.json({ message: 'Código de recuperação enviado para o email.' });
+  } catch (error) {
+    console.error('Error in forgotPassword:', error);
+    res.status(500).json({ error: 'Erro ao processar solicitação' });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      res.status(400).json({ error: 'Email, código e nova senha são obrigatórios' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
+      return;
+    }
+
+    // Find valid reset code
+    const resetResult = await pool.query(
+      'SELECT id FROM password_resets WHERE email = $1 AND token = $2 AND used = false AND expires_at > NOW()',
+      [email, code]
+    );
+
+    if (resetResult.rows.length === 0) {
+      res.status(400).json({ error: 'Código inválido ou expirado' });
+      return;
+    }
+
+    const resetId = resetResult.rows[0].id;
+
+    // Check if user exists
+    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+
+    if (userResult.rows.length === 0) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
+      [newPasswordHash, email]
+    );
+
+    // Mark code as used
+    await pool.query('UPDATE password_resets SET used = true WHERE id = $1', [resetId]);
+
+    res.json({ message: 'Senha redefinida com sucesso' });
+  } catch (error) {
+    console.error('Error in resetPassword:', error);
+    res.status(500).json({ error: 'Erro ao redefinir senha' });
+  }
+};
+
+
