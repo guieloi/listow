@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { ShoppingItem, CreateItemData, UpdateItemData } from '../models/ShoppingList';
+import { logger } from '../utils/logger';
 
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -25,7 +26,7 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Error getting items:', error);
+    logger.error('Error getting items', { error, action: 'GET_ITEMS_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -95,12 +96,13 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
         }
       }
     } catch (notifError) {
-      console.error('Error sending notification:', notifError);
+      logger.error('Error sending notification', { error: notifError, action: 'SEND_NOTIFICATION_ERROR' });
     }
 
+    logger.info('Item created', { listId, itemId: result.rows[0].id, name: result.rows[0].name, userId, action: 'CREATE_ITEM', entityType: 'ITEM', entityId: String(result.rows[0].id) });
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating item:', error);
+    logger.error('Error creating item', { error, action: 'CREATE_ITEM_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -179,9 +181,10 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
       WHERE id = (SELECT list_id FROM shopping_items WHERE id = $1)
     `, [itemId]);
 
+    logger.info('Item updated', { itemId, userId, action: 'UPDATE_ITEM', entityType: 'ITEM', entityId: String(itemId) });
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating item:', error);
+    logger.error('Error updating item', { error, action: 'UPDATE_ITEM_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -222,9 +225,10 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
       WHERE id = (SELECT list_id FROM shopping_items WHERE id = $1)
     `, [itemId]);
 
+    logger.info('Item deleted', { itemId, userId, action: 'DELETE_ITEM', entityType: 'ITEM', entityId: String(itemId) });
     res.json({ message: 'Item excluído com sucesso' });
   } catch (error) {
-    console.error('Error deleting item:', error);
+    logger.error('Error deleting item', { error, action: 'DELETE_ITEM_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -234,7 +238,7 @@ export const toggleItem = async (req: Request, res: Response): Promise<void> => 
     const userId = req.user?.userId;
     const itemId = parseInt(req.params.id);
 
-    console.log(`[ToggleItem] Request: User ${userId}, Item ${itemId}`);
+    logger.debug('Toggle item request', { userId, itemId, action: 'TOGGLE_ITEM_REQUEST' });
 
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
@@ -255,7 +259,7 @@ export const toggleItem = async (req: Request, res: Response): Promise<void> => 
     `, [itemId, userId]);
 
     if (accessCheck.rows.length === 0) {
-      console.log(`[ToggleItem] Access denied or item not found. User: ${userId}, Item: ${itemId}`);
+      logger.warn('Access denied or item not found for toggle', { userId, itemId, action: 'TOGGLE_ITEM_FORBIDDEN' });
       res.status(403).json({ error: 'Acesso negado ou item não encontrado' });
       return;
     }
@@ -274,10 +278,10 @@ export const toggleItem = async (req: Request, res: Response): Promise<void> => 
       WHERE id = (SELECT list_id FROM shopping_items WHERE id = $1)
     `, [itemId]);
 
-    console.log(`[ToggleItem] Success. Item ${itemId} toggled to ${newStatus}`);
+    logger.info('Item toggled', { itemId, newStatus, userId, action: 'TOGGLE_ITEM', entityType: 'ITEM', entityId: String(itemId) });
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error toggling item:', error);
+    logger.error('Error toggling item', { error, action: 'TOGGLE_ITEM_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };

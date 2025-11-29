@@ -5,6 +5,7 @@ import { validationResult } from 'express-validator';
 
 import pool from '../config/database';
 import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
+import { logger } from '../utils/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -17,7 +18,7 @@ if (!JWT_SECRET) {
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('📝 Register   attempt from :', req.ip, 'with data:', { name: req.body.name, email: req.body.email });
+    logger.info('Register attempt', { ip: req.ip, email: req.body.email, action: 'REGISTER_ATTEMPT', entityType: 'USER' });
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -31,6 +32,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Check if user already exists
     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
+      logger.warn('Register failed: User already exists', { email, action: 'REGISTER_FAILED_EXISTS', entityType: 'USER' });
       res.status(400).json({ error: 'Usuário já existe com este email' });
       return;
     }
@@ -65,16 +67,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       token
     };
 
+    logger.info('User registered successfully', { userId: user.id, email: user.email, action: 'REGISTER_SUCCESS', entityType: 'USER', entityId: String(user.id) });
+
     res.status(201).json(authResponse);
   } catch (error: any) {
-    console.error('Error registering user:', error);
+    logger.error('Error registering user', { error: error.message, action: 'REGISTER_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('🔐 Login attempt from:', req.ip, 'with email:', req.body.email);
+    logger.info('Login attempt', { ip: req.ip, email: req.body.email, action: 'LOGIN_ATTEMPT', entityType: 'USER' });
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -92,7 +96,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
 
     if (result.rows.length === 0) {
-      console.log('❌ User not found:', email);
+      logger.warn('Login failed: User not found', { email, action: 'LOGIN_FAILED_NOT_FOUND', entityType: 'USER' });
       res.status(401).json({
         error: 'Usuário ou senha inválido',
         userExists: false
@@ -110,7 +114,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      console.log('❌ Invalid password for user:', email);
+      logger.warn('Login failed: Invalid password', { email, action: 'LOGIN_FAILED_INVALID_PASSWORD', entityType: 'USER' });
       res.status(401).json({
         error: 'Usuário ou senha inválido',
         userExists: true
@@ -136,9 +140,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       token
     };
 
+    logger.info('User logged in successfully', { userId: user.id, email: user.email, action: 'LOGIN_SUCCESS', entityType: 'USER', entityId: String(user.id) });
     res.json(authResponse);
   } catch (error) {
-    console.error('Error logging in user:', error);
+    logger.error('Error logging in user', { error, action: 'LOGIN_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -160,7 +165,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
 
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error('Error getting user profile:', error);
+    logger.error('Error getting user profile', { error, action: 'GET_PROFILE_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -186,7 +191,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error('Error getting user by id:', error);
+    logger.error('Error getting user by id', { error, action: 'GET_USER_BY_ID_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -231,9 +236,16 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    logger.info('Profile updated', {
+      userId,
+      updatedFields: { name: !!name, photo: !!photo_url },
+      action: 'UPDATE_PROFILE',
+      entityType: 'USER',
+      entityId: String(userId)
+    });
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error('Error updating profile:', error);
+    logger.error('Error updating profile', { error, action: 'UPDATE_PROFILE_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -280,9 +292,10 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       [newPasswordHash, userId]
     );
 
+    logger.info('Password changed successfully', { userId, action: 'CHANGE_PASSWORD_SUCCESS', entityType: 'USER', entityId: String(userId) });
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error) {
-    console.error('Error changing password:', error);
+    logger.error('Error changing password', { error, action: 'CHANGE_PASSWORD_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -306,9 +319,10 @@ export const savePushToken = async (req: Request, res: Response): Promise<void> 
       [userId, token]
     );
 
+    logger.debug('Push token saved', { userId, action: 'SAVE_PUSH_TOKEN', entityType: 'USER', entityId: String(userId) });
     res.json({ message: 'Token salvo com sucesso' });
   } catch (error) {
-    console.error('Error saving push token:', error);
+    logger.error('Error saving push token', { error, action: 'SAVE_PUSH_TOKEN_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -350,9 +364,10 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     const { sendPasswordResetEmail } = require('../services/emailService');
     await sendPasswordResetEmail(email, code);
 
+    logger.info('Password reset code sent', { email, action: 'FORGOT_PASSWORD_REQUEST', entityType: 'USER' });
     res.json({ message: 'Código de recuperação enviado para o email.' });
   } catch (error) {
-    console.error('Error in forgotPassword:', error);
+    logger.error('Error in forgotPassword', { error, action: 'FORGOT_PASSWORD_ERROR' });
     res.status(500).json({ error: 'Erro ao processar solicitação' });
   }
 };
@@ -405,9 +420,10 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     // Mark code as used
     await pool.query('UPDATE password_resets SET used = true WHERE id = $1', [resetId]);
 
+    logger.info('Password reset successfully', { email, action: 'RESET_PASSWORD_SUCCESS', entityType: 'USER' });
     res.json({ message: 'Senha redefinida com sucesso' });
   } catch (error) {
-    console.error('Error in resetPassword:', error);
+    logger.error('Error in resetPassword', { error, action: 'RESET_PASSWORD_ERROR' });
     res.status(500).json({ error: 'Erro ao redefinir senha' });
   }
 };

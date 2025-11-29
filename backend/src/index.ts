@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 dotenv.config();
 
@@ -10,6 +11,7 @@ import authRoutes from './routes/auth';
 import listRoutes from './routes/lists';
 import itemRoutes from './routes/items';
 import pool from './config/database';
+import { logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 8085;
@@ -37,12 +39,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory
-import path from 'path';
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Log all requests
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} from ${req.ip} at ${new Date().toISOString()}`);
+  logger.info('Incoming request', { method: req.method, path: req.path, ip: req.ip, action: 'INCOMING_REQUEST', entityType: 'SYSTEM' });
   next();
 });
 
@@ -53,7 +54,7 @@ app.use('/api/items', itemRoutes);
 
 // Health check with database connection test
 app.get('/api/health', async (req, res) => {
-  console.log('🏥 Health check request from:', req.ip, 'at', new Date().toISOString());
+  logger.debug('Health check request', { ip: req.ip, action: 'HEALTH_CHECK', entityType: 'SYSTEM' });
 
   const timestamp = new Date().toISOString();
   const apiVersion = process.env.npm_package_version || '1.0.0';
@@ -73,33 +74,33 @@ app.get('/api/health', async (req, res) => {
     const dbResult = await pool.query('SELECT 1 as test');
 
     if (dbResult.rows.length === 1 && dbResult.rows[0].test === 1) {
-      console.log('✅ Database connection test successful');
+      logger.debug('Database connection test successful', { action: 'DB_CHECK_SUCCESS', entityType: 'SYSTEM' });
       healthStatus.database = 'OK';
     } else {
-      console.log('❌ Database connection test failed - unexpected result');
+      logger.error('Database connection test failed - unexpected result', { action: 'DB_CHECK_FAILED', entityType: 'SYSTEM' });
       healthStatus.database = 'ERROR';
       healthStatus.status = 'ERROR';
       httpStatus = 503;
     }
   } catch (error) {
-    console.error('❌ Database connection test failed:', error);
+    logger.error('Database connection test failed', { error, action: 'DB_CHECK_ERROR', entityType: 'SYSTEM' });
     healthStatus.database = 'ERROR';
     healthStatus.status = 'ERROR';
     httpStatus = 503;
   }
 
-  console.log('🏥 Health check result:', healthStatus);
+  logger.info('Health check result', { ...healthStatus, action: 'HEALTH_CHECK_RESULT', entityType: 'SYSTEM' });
   res.status(httpStatus).json(healthStatus);
 });
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
+  logger.error('Unhandled error', { error: err.stack, action: 'UNHANDLED_ERROR', entityType: 'SYSTEM' });
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`, { action: 'SERVER_START', entityType: 'SYSTEM' });
 });
 
 export default app;

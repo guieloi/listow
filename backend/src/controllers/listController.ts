@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { ShoppingList, CreateListData, UpdateListData } from '../models/ShoppingList';
+import { logger } from '../utils/logger';
 
 export const getLists = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -38,14 +39,7 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
     `;
     const result = await pool.query(query, [userId]);
 
-    console.log(`📋 Found ${result.rows.length} lists for user ${userId}:`, 
-      result.rows.map(row => ({ 
-        id: row.id, 
-        name: row.name, 
-        role: row.user_role,
-        is_owner: row.is_owner 
-      }))
-    );
+    logger.debug(`Found ${result.rows.length} lists for user`, { userId, action: 'GET_LISTS', entityType: 'USER', entityId: String(userId) });
 
     // Add empty items and collaborators arrays
     const lists = result.rows.map((row: any) => ({
@@ -56,7 +50,7 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
 
     res.json(lists);
   } catch (error) {
-    console.error('Error getting lists:', error);
+    logger.error('Error getting lists', { error, action: 'GET_LISTS_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -64,7 +58,7 @@ export const getLists = async (req: Request, res: Response): Promise<void> => {
 export const createList = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -85,131 +79,104 @@ export const createList = async (req: Request, res: Response): Promise<void> => 
     newList.items = [];
     newList.collaborators = [];
 
+    logger.info('List created', { userId, listId: newList.id, name: newList.name, action: 'CREATE_LIST', entityType: 'LIST', entityId: String(newList.id) });
     res.status(201).json(newList);
   } catch (error) {
-    console.error('Error creating list:', error);
+    logger.error('Error creating list', { error, action: 'CREATE_LIST_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
 export const updateList = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('📝 UPDATE LIST REQUEST RECEIVED');
-    console.log('═══════════════════════════════════════════════════════');
-    
+    logger.info('Update list request received', { action: 'UPDATE_LIST_REQUEST' });
+
     const userId = req.user?.userId;
-    console.log('👤 User from token:', userId, 'Type:', typeof userId);
-    
+    logger.debug('User from token', { userId, type: typeof userId });
+
     if (!userId) {
-      console.log('❌ No userId found in request');
+      logger.warn('No userId found in request', { action: 'UPDATE_LIST_UNAUTHORIZED' });
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
     }
-    
+
     const listId = parseInt(req.params.id);
     const { name, description }: UpdateListData = req.body;
-    
-    console.log('📋 Request params:', { listId, name, description });
-    console.log('📋 Parsed listId:', listId, 'isNaN:', isNaN(listId));
+
+    logger.debug('Request params', { listId, name, description });
 
     if (!listId || isNaN(listId)) {
-      console.log('❌ Invalid listId');
+      logger.warn('Invalid listId', { listId, action: 'UPDATE_LIST_INVALID_ID' });
       res.status(400).json({ error: 'ID da lista inválido' });
       return;
     }
 
     // First, check if list exists
-    console.log('🔍 Step 1: Checking if list exists...');
     const listExists = await pool.query(
       'SELECT id, owner_id, name FROM shopping_lists WHERE id = $1',
       [listId]
     );
-    console.log('📋 List exists check:', listExists.rows);
 
     if (listExists.rows.length === 0) {
-      console.log('❌ List not found');
+      logger.warn('List not found', { listId, action: 'UPDATE_LIST_NOT_FOUND' });
       res.status(404).json({ error: 'Lista não encontrada' });
       return;
     }
 
     const ownerId = listExists.rows[0].owner_id;
-    console.log('👑 List owner_id:', ownerId, 'Type:', typeof ownerId);
-    console.log('👤 Current userId:', userId, 'Type:', typeof userId);
-    
+
     // Check if user is owner
     const userIdNum = Number(userId);
     const ownerIdNum = Number(ownerId);
     const isOwner = userIdNum === ownerIdNum;
-    console.log('🔍 Is owner check:', { userIdNum, ownerIdNum, isOwner });
 
     // Check collaborator permissions
-    console.log('🔍 Step 2: Checking collaborator permissions...');
     const collaboratorCheck = await pool.query(
       'SELECT permission FROM list_collaborators WHERE list_id = $1 AND user_id = $2',
       [listId, userId]
     );
-    console.log('📋 Collaborator check:', collaboratorCheck.rows);
 
-    const hasWritePermission = collaboratorCheck.rows.length > 0 && 
-                               collaboratorCheck.rows[0].permission === 'write';
-    console.log('✍️ Has write permission:', hasWritePermission);
+    const hasWritePermission = collaboratorCheck.rows.length > 0 &&
+      collaboratorCheck.rows[0].permission === 'write';
 
     // Final access check
     if (!isOwner && !hasWritePermission) {
-      console.log('❌ ACCESS DENIED - User is neither owner nor has write permission');
-      console.log('   Owner check:', isOwner);
-      console.log('   Write permission check:', hasWritePermission);
+      logger.warn('Access denied to update list', { userId, listId, action: 'UPDATE_LIST_FORBIDDEN' });
       res.status(403).json({ error: 'Acesso negado. Apenas o dono ou colaboradores com permissão de escrita podem editar a lista.' });
       return;
     }
 
-    console.log('✅ ACCESS GRANTED - User can edit list');
-    console.log('   Is owner:', isOwner);
-    console.log('   Has write permission:', hasWritePermission);
-
-    console.log('🔍 Step 3: Building update query...');
+    // Building update query...
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
 
     if (name !== undefined) {
-      console.log('📝 Updating name to:', name.trim());
       updates.push(`name = $${paramCount++}`);
       values.push(name.trim());
     }
 
     if (description !== undefined) {
-      console.log('📝 Updating description to:', description?.trim() || null);
       updates.push(`description = $${paramCount++}`);
       values.push(description?.trim() || null);
     }
 
     if (updates.length === 0) {
-      console.log('❌ No fields to update');
+      logger.warn('No fields to update for list', { listId, action: 'UPDATE_LIST_NO_FIELDS' });
       res.status(400).json({ error: 'Nenhum campo para atualizar' });
       return;
     }
 
     values.push(listId);
     const query = `UPDATE shopping_lists SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
-    console.log('📝 Update query:', query);
-    console.log('📝 Query values:', values);
 
-    console.log('🔍 Step 4: Executing update query...');
+    // Executing update query...
     const result = await pool.query(query, values);
-    console.log('✅ Update successful! Result:', result.rows[0]);
-    
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('✅ UPDATE LIST COMPLETED SUCCESSFULLY');
-    console.log('═══════════════════════════════════════════════════════');
-    
+    logger.info('List updated successfully', { listId, userId, action: 'UPDATE_LIST', entityType: 'LIST', entityId: String(listId) });
+
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('═══════════════════════════════════════════════════════');
-    console.error('❌ ERROR UPDATING LIST:');
-    console.error(error);
-    console.error('═══════════════════════════════════════════════════════');
+    logger.error('Error updating list', { error, action: 'UPDATE_LIST_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -217,12 +184,12 @@ export const updateList = async (req: Request, res: Response): Promise<void> => 
 export const deleteList = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
     }
-    
+
     const listId = parseInt(req.params.id);
 
     if (!listId || isNaN(listId)) {
@@ -244,16 +211,17 @@ export const deleteList = async (req: Request, res: Response): Promise<void> => 
     // Convert both to numbers for comparison
     const ownerId = parseInt(listCheck.rows[0].owner_id);
     const userIdNum = parseInt(userId.toString());
-    
+
     if (ownerId !== userIdNum) {
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }
 
     await pool.query('DELETE FROM shopping_lists WHERE id = $1', [listId]);
+    logger.info('List deleted', { listId, userId, action: 'DELETE_LIST', entityType: 'LIST', entityId: String(listId) });
     res.json({ message: 'Lista excluída com sucesso' });
   } catch (error) {
-    console.error('Error deleting list:', error);
+    logger.error('Error deleting list', { error, action: 'DELETE_LIST_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -261,7 +229,7 @@ export const deleteList = async (req: Request, res: Response): Promise<void> => 
 export const shareList = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -321,14 +289,14 @@ export const shareList = async (req: Request, res: Response): Promise<void> => {
         'UPDATE list_collaborators SET permission = $1 WHERE list_id = $2 AND user_id = $3',
         [permission, listId, targetUserId]
       );
-      console.log('✅ Updated permission for user:', email, 'to', permission);
+      logger.info('Updated collaborator permission', { listId, email, permission, action: 'UPDATE_COLLABORATOR', entityType: 'LIST', entityId: String(listId) });
     } else {
       // Add new collaborator
       await pool.query(
         'INSERT INTO list_collaborators (list_id, user_id, permission) VALUES ($1, $2, $3)',
         [listId, targetUserId, permission]
       );
-      console.log('✅ Added new collaborator:', email, 'with permission:', permission);
+      logger.info('Added new collaborator', { listId, email, permission, action: 'ADD_COLLABORATOR', entityType: 'LIST', entityId: String(listId) });
     }
 
     // Update list as shared
@@ -336,22 +304,22 @@ export const shareList = async (req: Request, res: Response): Promise<void> => {
 
     res.json({ message: 'Lista compartilhada com sucesso' });
   } catch (error) {
-    console.error('Error sharing list:', error);
+    logger.error('Error sharing list', { error, action: 'SHARE_LIST_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
 export const getListCollaborators = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('🔍 Getting collaborators for list:', req.params.id);
+    logger.debug('Getting collaborators for list', { listId: req.params.id });
     const userId = req.user?.userId;
-    
+
     if (!userId) {
-      console.log('❌ No userId found');
+      logger.warn('No userId found');
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
     }
-    
+
     const listId = parseInt(req.params.id);
 
     if (!listId || isNaN(listId)) {
@@ -388,10 +356,10 @@ export const getListCollaborators = async (req: Request, res: Response): Promise
       ORDER BY lc.added_at ASC
     `, [listId]);
 
-    console.log('✅ Found collaborators:', result.rows.length, result.rows);
+    logger.debug('Found collaborators', { count: result.rows.length });
     res.json(result.rows);
   } catch (error) {
-    console.error('Error getting collaborators:', error);
+    logger.error('Error getting collaborators', { error, action: 'GET_COLLABORATORS_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
@@ -399,12 +367,12 @@ export const getListCollaborators = async (req: Request, res: Response): Promise
 export const removeCollaborator = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    
+
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
     }
-    
+
     const listId = parseInt(req.params.id);
     const collaboratorId = parseInt(req.params.collaboratorId);
 
@@ -445,9 +413,10 @@ export const removeCollaborator = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    logger.info('Collaborator removed', { listId, collaboratorId, removedBy: userId, action: 'REMOVE_COLLABORATOR', entityType: 'LIST', entityId: String(listId) });
     res.json({ message: 'Colaborador removido com sucesso' });
   } catch (error) {
-    console.error('Error removing collaborator:', error);
+    logger.error('Error removing collaborator', { error, action: 'REMOVE_COLLABORATOR_ERROR' });
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
