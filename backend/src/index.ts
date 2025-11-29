@@ -14,6 +14,9 @@ import pool from './config/database';
 const app = express();
 const PORT = process.env.PORT || 8085;
 
+// Trust proxy - required when behind reverse proxy (nginx, etc)
+app.set('trust proxy', true);
+
 // Security Middleware
 app.use(helmet());
 
