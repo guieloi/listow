@@ -97,7 +97,13 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Home: undefined;
-  ListDetails: { listId: number; listName: string };
+  ListDetails: {
+    listId: number;
+    listName: string;
+    isOwner?: boolean;
+    userRole?: 'owner' | 'read' | 'write';
+    ownerId?: number;
+  };
   ShareList: { listId: number; listName: string; isOwner?: boolean; userRole?: 'owner' | 'read' | 'write'; ownerId?: number };
 };
 

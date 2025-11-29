@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -24,7 +25,8 @@ import {
   Button,
   Divider,
   Snackbar,
-  Icon
+  Icon,
+  TouchableRipple
 } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -83,16 +85,165 @@ const sortItems = (items: ShoppingItem[]): ShoppingItem[] => {
 type ListDetailsScreenRouteProp = RouteProp<RootStackParamList, 'ListDetails'>;
 type ListDetailsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ListDetails'>;
 
+const ShoppingListItem = React.memo(({
+  item,
+  theme,
+  isLongPressed,
+  onToggle,
+  onLongPress,
+  onEdit,
+  onDelete
+}: {
+  item: ShoppingItem;
+  theme: AppTheme;
+  isLongPressed: boolean;
+  onToggle: (item: ShoppingItem) => void;
+  onLongPress: (id: number | null) => void;
+  onEdit: (item: ShoppingItem) => void;
+  onDelete: (item: ShoppingItem) => void;
+}) => {
+  // Local state to handle optimistic update and delay
+  const [internalIsCompleted, setInternalIsCompleted] = useState(item.is_completed);
+
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const colorAnim = useRef(new Animated.Value(item.is_completed ? 1 : 0)).current;
+
+  // Sync internal state with prop when prop changes (e.g. from refresh or other updates)
+  useEffect(() => {
+    setInternalIsCompleted(item.is_completed);
+  }, [item.is_completed]);
+
+  // Animation effect based on internal state
+  useEffect(() => {
+    const toValue = internalIsCompleted ? 1 : 0;
+
+    Animated.parallel([
+      Animated.timing(colorAnim, {
+        toValue,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: internalIsCompleted ? 1.2 : 0.9,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [internalIsCompleted]);
+
+  const handlePress = () => {
+    if (isLongPressed) {
+      onLongPress(null);
+      return;
+    }
+
+    // 1. Toggle locally immediately for visual feedback
+    const newStatus = !internalIsCompleted;
+    setInternalIsCompleted(newStatus);
+
+    // 2. Wait 300ms before notifying parent to move the item
+    setTimeout(() => {
+      onToggle(item);
+    }, 500);
+  };
+
+  const backgroundColor = colorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
+  });
+
+  const checkboxColor = internalIsCompleted ? theme.colors.primary : 'transparent';
+  const checkboxBorderColor = internalIsCompleted ? theme.colors.primary : theme.colors.outline;
+
+  return (
+    <Surface style={[styles.itemContainer]} elevation={0}>
+      <Animated.View style={{ backgroundColor }}>
+        <TouchableOpacity
+          style={styles.itemTouchable}
+          onPress={handlePress}
+          onLongPress={() => onLongPress(item.id)}
+          delayLongPress={300}
+          activeOpacity={0.7}
+        >
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={handlePress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Animated.View style={[
+              styles.checkboxCircle,
+              {
+                borderColor: checkboxBorderColor,
+                backgroundColor: checkboxColor,
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}>
+              {internalIsCompleted && (
+                <Icon source="check" size={20} color={theme.colors.onPrimary} />
+              )}
+            </Animated.View>
+          </TouchableOpacity>
+
+          <View style={styles.itemContent}>
+            <Text
+              variant="bodyLarge"
+              style={[
+                styles.itemName,
+                internalIsCompleted && { color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }
+              ]}
+            >
+              {item.name}
+            </Text>
+
+            <View style={styles.itemMeta}>
+              {item.quantity ? (
+                <View style={[styles.miniChip, { backgroundColor: theme.colors.secondaryContainer }]}>
+                  <Text style={[styles.miniChipText, { color: theme.colors.onSecondaryContainer }]}>
+                    {item.quantity} {item.unit}
+                  </Text>
+                </View>
+              ) : null}
+              {item.price ? (
+                <View style={[styles.miniChip, { backgroundColor: theme.colors.primaryContainer }]}>
+                  <Text style={[styles.miniChipText, { color: theme.colors.onPrimaryContainer }]}>
+                    {formatPrice(item.price)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          {isLongPressed && (
+            <View style={styles.actionButtons}>
+              <IconButton icon="pencil" size={20} onPress={() => onEdit(item)} />
+              <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => onDelete(item)} />
+            </View>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+      <Divider />
+    </Surface>
+  );
+});
+
 const ListDetailsScreen: React.FC = () => {
   const theme = useTheme<AppTheme>();
   const navigation = useNavigation<ListDetailsScreenNavigationProp>();
   const route = useRoute<ListDetailsScreenRouteProp>();
-  const { listId, listName } = route.params;
+  const { listId, listName, isOwner, userRole, ownerId } = route.params;
 
   // State
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Quick Add State
   const [newItemText, setNewItemText] = useState('');
@@ -129,11 +280,17 @@ const ListDetailsScreen: React.FC = () => {
         <IconButton
           icon="share-variant"
           iconColor={theme.colors.primary}
-          onPress={() => navigation.navigate('ShareList', { listId, listName })}
+          onPress={() => navigation.navigate('ShareList', {
+            listId,
+            listName,
+            isOwner,
+            userRole,
+            ownerId
+          })}
         />
       ),
     });
-  }, [listName, navigation, theme]);
+  }, [listName, navigation, theme, isOwner, userRole, ownerId]);
 
   const fetchItems = async () => {
     try {
@@ -236,10 +393,6 @@ const ListDetailsScreen: React.FC = () => {
     // Cancelar qualquer exclusão pendente anterior imediatamente para evitar conflitos
     if (deleteTimeoutRef.current) {
       clearTimeout(deleteTimeoutRef.current);
-      // Se havia um item pendente, infelizmente ele será perdido ou deletado dependendo da lógica. 
-      // Para simplificar, assumimos que o usuário foca em uma ação por vez ou finalizamos a anterior.
-      // Aqui vamos finalizar a anterior (deletar de fato) se houver, mas como o estado deletedItem é único, 
-      // vamos apenas substituir pelo novo.
     }
 
     // Salvar item para possível restauração
@@ -258,7 +411,6 @@ const ListDetailsScreen: React.FC = () => {
         // Sucesso silencioso
       } catch (error) {
         console.error("Erro ao excluir item no servidor", error);
-        // Opcional: avisar usuário ou tentar novamente
       }
       setDeletedItem(null); // Limpar referência
     }, 3000); // 3 segundos
@@ -285,87 +437,53 @@ const ListDetailsScreen: React.FC = () => {
 
   // --- Render ---
 
-  const renderItem = ({ item }: { item: ShoppingItem }) => {
-    const isLongPressed = longPressedItemId === item.id;
-
-    return (
-      <Surface
-        style={[
-          styles.itemContainer,
-          { backgroundColor: theme.colors.surface },
-          item.is_completed && { backgroundColor: theme.colors.surfaceVariant }
-        ]}
-        elevation={0}
-      >
-        <TouchableOpacity
-          style={styles.itemTouchable}
-          onPress={() => {
-            if (isLongPressed) setLongPressedItemId(null);
-            else handleToggleItem(item);
-          }}
-          onLongPress={() => setLongPressedItemId(item.id)}
-          delayLongPress={300}
-          activeOpacity={0.7}
-        >
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => handleToggleItem(item)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <View style={[
-              styles.checkboxCircle,
-              { borderColor: theme.colors.outline },
-              item.is_completed && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-            ]}>
-              {item.is_completed && (
-                <Icon source="check" size={20} color={theme.colors.onPrimary} />
-              )}
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.itemContent}>
-            <Text
-              variant="bodyLarge"
-              style={[
-                styles.itemName,
-                item.is_completed && { color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }
-              ]}
-            >
-              {item.name}
-            </Text>
-
-            <View style={styles.itemMeta}>
-              {item.quantity ? (
-                <View style={[styles.miniChip, { backgroundColor: theme.colors.secondaryContainer }]}>
-                  <Text style={[styles.miniChipText, { color: theme.colors.onSecondaryContainer }]}>
-                    {item.quantity} {item.unit}
-                  </Text>
-                </View>
-              ) : null}
-              {item.price ? (
-                <View style={[styles.miniChip, { backgroundColor: theme.colors.primaryContainer }]}>
-                  <Text style={[styles.miniChipText, { color: theme.colors.onPrimaryContainer }]}>
-                    {formatPrice(item.price)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-
-          {isLongPressed && (
-            <View style={styles.actionButtons}>
-              <IconButton icon="pencil" size={20} onPress={() => handleEditItem(item)} />
-              <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => handleDeleteItem(item)} />
-            </View>
-          )}
-        </TouchableOpacity>
-        <Divider />
-      </Surface>
-    );
-  };
+  const renderItem = useCallback(({ item }: { item: ShoppingItem }) => (
+    <ShoppingListItem
+      item={item}
+      theme={theme}
+      isLongPressed={longPressedItemId === item.id}
+      onToggle={handleToggleItem}
+      onLongPress={setLongPressedItemId}
+      onEdit={handleEditItem}
+      onDelete={handleDeleteItem}
+    />
+  ), [theme, longPressedItemId, handleToggleItem, handleEditItem, handleDeleteItem]);
 
   const totalValue = calculateTotal();
   const completedCount = items.filter(i => i.is_completed).length;
+
+  const activeItems = items.filter(i => !i.is_completed);
+  const completedItems = items.filter(i => i.is_completed);
+
+  const sections = [
+    { title: 'Active', data: activeItems },
+    { title: 'Completed', data: showCompleted ? completedItems : [] }
+  ];
+
+  const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => {
+    if (title === 'Completed') {
+      return (
+        <View style={styles.completedHeaderContainer}>
+          <TouchableRipple
+            onPress={() => setShowCompleted(!showCompleted)}
+            style={styles.completedHeader}
+          >
+            <>
+              <Text variant="bodyMedium" style={{ color: theme.colors.primary, fontWeight: '500' }}>
+                Exibir marcados ({completedItems.length})
+              </Text>
+              <Icon
+                source={showCompleted ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={theme.colors.primary}
+              />
+            </>
+          </TouchableRipple>
+        </View>
+      );
+    }
+    return null;
+  };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -415,12 +533,14 @@ const ListDetailsScreen: React.FC = () => {
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         ) : (
-          <FlatList
-            data={items}
+          <SectionList
+            sections={sections}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             contentContainerStyle={{ paddingBottom: 80 }}
+            stickySectionHeadersEnabled={false}
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, marginTop: 40 }}>
@@ -580,6 +700,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 10,
     marginTop: 10,
+  },
+  completedHeaderContainer: {
+    marginTop: 8,
+    marginBottom: 1,
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    paddingHorizontal: 16,
   },
 });
 

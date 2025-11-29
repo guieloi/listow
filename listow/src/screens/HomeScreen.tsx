@@ -201,7 +201,13 @@ const HomeScreen: React.FC = () => {
     return (
       <Card
         style={[styles.card, { backgroundColor: theme.colors.surface }]}
-        onPress={() => navigation.navigate('ListDetails', { listId: item.id, listName: item.name })}
+        onPress={() => navigation.navigate('ListDetails', {
+          listId: item.id,
+          listName: item.name,
+          isOwner: item.is_owner,
+          userRole: item.user_role,
+          ownerId: item.owner_id
+        })}
         mode="elevated"
         elevation={1}
       >

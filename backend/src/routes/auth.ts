@@ -29,6 +29,8 @@ router.post('/login', (req: Request, res: Response, next: NextFunction) => {
   next();
 }, loginValidation, authController.login);
 
+router.get('/user/:id', authenticateToken, authController.getUserById);
+
 router.put(
   '/profile',
   authenticateToken,
