@@ -90,8 +90,16 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
-    if (newPassword.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+    if (newPassword.length < 8) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+
+    if (!hasLetter || !hasNumber) {
+      Alert.alert('Erro', 'A senha deve conter letras e números.');
       return;
     }
 

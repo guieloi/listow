@@ -366,8 +366,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (newPassword.length < 6) {
-      res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres' });
       return;
     }
 
