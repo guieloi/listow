@@ -1,12 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not defined!');
-}
-
 interface JwtPayload {
   userId: number;
   email: string;
@@ -31,8 +25,15 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return;
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error('JWT_SECRET is not defined in environment variables');
+    res.status(500).json({ error: 'Erro interno de configuração' });
+    return;
+  }
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, secret) as JwtPayload;
     req.user = decoded;
     next();
   } catch (error) {

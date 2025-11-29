@@ -7,12 +7,13 @@ import pool from '../config/database';
 import { User, CreateUserData, LoginData, AuthResponse } from '../models/User';
 import { logger } from '../utils/logger';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not defined!');
-}
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not defined!');
+  }
+  return secret;
+};
 
 
 
@@ -52,7 +53,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      String(JWT_SECRET),
+      getJwtSecret(),
     );
 
     const authResponse: AuthResponse = {
@@ -125,7 +126,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      String(JWT_SECRET),
+      getJwtSecret(),
     );
 
     const authResponse: AuthResponse = {
