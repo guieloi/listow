@@ -105,6 +105,8 @@ export type RootStackParamList = {
     ownerId?: number;
   };
   ShareList: { listId: number; listName: string; isOwner?: boolean; userRole?: 'owner' | 'read' | 'write'; ownerId?: number };
+  PrivacyPolicy: undefined;
+  AccountDeletion: undefined;
 };
 
 // Context types

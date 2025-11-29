@@ -127,6 +127,10 @@ class ApiService {
     await this.api.post('/auth/reset-password', { email, code, newPassword });
   }
 
+  async requestAccountDeletion(reason?: string): Promise<void> {
+    await this.api.post('/auth/delete-account', { reason });
+  }
+
   // Shopping Lists endpoints
   async getLists(): Promise<ShoppingList[]> {
     const state = await NetInfo.fetch();

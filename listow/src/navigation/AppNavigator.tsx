@@ -12,6 +12,8 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ListDetailsScreen from '../screens/ListDetailsScreen';
 import ShareListScreen from '../screens/ShareListScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import AccountDeletionScreen from '../screens/AccountDeletionScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -65,6 +67,20 @@ const AppNavigator: React.FC = () => {
               component={ShareListScreen}
               options={{
                 title: 'Compartilhar',
+              }}
+            />
+            <Stack.Screen
+              name="PrivacyPolicy"
+              component={PrivacyPolicyScreen}
+              options={{
+                title: 'Política de Privacidade',
+              }}
+            />
+            <Stack.Screen
+              name="AccountDeletion"
+              component={AccountDeletionScreen}
+              options={{
+                title: 'Excluir Conta',
               }}
             />
           </>

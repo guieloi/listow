@@ -36,10 +36,12 @@
     "extra": {
       "eas": {
         "projectId": "952ef910-9741-4fe8-ac92-2f2acde007e7"
-      }
+      },
+      "supportEmail": "guieloi1989@gmail.com"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ]
   }
 }

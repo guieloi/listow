@@ -434,6 +434,28 @@ const HomeScreen: React.FC = () => {
             <Switch value={isDark} onValueChange={toggleTheme} color={theme.colors.primary} />
           </View>
 
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setShowProfileModal(false);
+              navigation.navigate('PrivacyPolicy');
+            }}
+            style={styles.buttonSpacing}
+          >
+            Política de Privacidade
+          </Button>
+
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setShowProfileModal(false);
+              navigation.navigate('AccountDeletion');
+            }}
+            style={styles.buttonSpacing}
+          >
+            Excluir Conta
+          </Button>
+
           <Button mode="outlined" onPress={() => setShowPasswordModal(true)} style={styles.buttonSpacing}>
             Alterar Senha
           </Button>

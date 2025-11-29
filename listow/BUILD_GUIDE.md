@@ -1,5 +1,315 @@
 # Guia de Build - APK Listow
 
+## ⚠️ IMPORTANTE: Limitação do Windows
+
+**Build local de Android no Windows NÃO é suportado pelo EAS CLI.**
+
+O EAS Build só permite builds locais de Android em:
+- ✅ **macOS**
+- ✅ **Linux (Ubuntu/Debian)**
+- ❌ **Windows** (apenas build na nuvem)
+
+### Opções no Windows:
+
+1. **Build na Nuvem (Recomendado para Windows)**
+   - Rápido (10-20 min)
+   - Sem instalação necessária
+   - Gratuito (número limitado de builds)
+
+2. **WSL2 + Linux (Avançado)**
+   - Instalar Ubuntu no WSL2
+   - Configurar Android SDK no Linux
+   - Build local via WSL
+
+3. **VM Linux ou Dual Boot**
+   - Instalar Linux em máquina virtual
+   - Ou dual boot com Windows
+
+**Para este projeto, vamos usar Build na Nuvem.** 🚀
+
+---
+
+## Tipo de Build: Local vs Nuvem
+
+### Build Local (Recomendado)
+✅ **Mais rápido** (5-10 min)  
+✅ **Sem limites** de builds  
+✅ **Controle total**  
+❌ Requer configuração inicial  
+
+### Build na Nuvem
+✅ **Fácil** (sem configuração)  
+✅ **Funciona em qualquer PC**  
+❌ **Lento** (15-30 min)  
+❌ Limites de builds gratuitos  
+
+---
+
+## Build Local - Setup Completo (Windows)
+
+### Passo 1: Instalar Java JDK 17
+
+1. Baixe o **JDK 17**: https://adoptium.net/temurin/releases/?version=17
+2. Escolha: **Windows x64** → **JDK** → **.msi installer**
+3. Instale com as opções padrão
+4. Verifique: `java -version` (deve mostrar 17.x.x)
+
+### Passo 2: Instalar Android Studio
+
+1. Baixe: https://developer.android.com/studio
+2. Instale com as opções padrão
+3. Abra o Android Studio
+4. Vá em: **More Actions** → **SDK Manager**
+5. Na aba **SDK Platforms**:
+   - Marque **Android 13.0 (Tiramisu)** ou superior
+6. Na aba **SDK Tools**:
+   - Marque **Android SDK Build-Tools**
+   - Marque **Android SDK Command-line Tools**
+   - Marque **Android SDK Platform-Tools**
+7. Clique em **Apply** e aguarde download
+
+### Passo 3: Configurar Variáveis de Ambiente
+
+1. Abra **Painel de Controle** → **Sistema** → **Configurações avançadas do sistema**
+2. Clique em **Variáveis de Ambiente**
+
+#### ANDROID_HOME
+
+1. Em **Variáveis do Sistema**, clique em **Novo**
+2. Nome: `ANDROID_HOME`
+3. Valor: `C:\Users\[SEU_USUARIO]\AppData\Local\Android\Sdk`
+   - **Importante:** Substitua `[SEU_USUARIO]` pelo seu nome de usuário!
+   - Exemplo: `C:\Users\Guilherme\AppData\Local\Android\Sdk`
+
+#### Atualizar PATH
+
+1. Em **Variáveis do Sistema**, selecione **Path** e clique em **Editar**
+2. Clique em **Novo** e adicione estas 3 linhas:
+   ```
+   %ANDROID_HOME%\platform-tools
+   %ANDROID_HOME%\tools
+   %ANDROID_HOME%\cmdline-tools\latest\bin
+   ```
+3. Clique **OK** em todas as janelas
+
+### Passo 4: Verificar Instalação
+
+Feche e reabra o **PowerShell** (importante!) e execute:
+
+```powershell
+# Verificar Java
+java -version
+
+# Verificar Android SDK
+adb --version
+
+# Verificar variável ANDROID_HOME
+echo $env:ANDROID_HOME
+```
+
+Se todos comandarem funcionarem, está pronto! ✅
+
+---
+
+## Fazer Build Local
+
+### Passo 1: Instalar EAS CLI
+
+```powershell
+npm install -g eas-cli
+```
+
+### Passo 2: Login no Expo
+
+```powershell
+eas login
+```
+
+### Passo 3: Incrementar Versão
+
+Edite `app.json` e incremente a versão:
+
+```json
+{
+  "expo": {
+    "version": "0.0.4"  // Incrementar sempre!
+  }
+}
+```
+
+### Passo 4: Build Local
+
+```powershell
+cd c:\wamp64\www\github\listow\listow
+
+# Definir variável para não usar Git
+$env:EAS_NO_VCS=1
+
+# Build local
+eas build --profile preview --platform android --local
+```
+
+**Aguarde 5-10 minutos.** ⏱️
+
+O APK será salvo em:
+```
+c:\wamp64\www\github\listow\listow\build-<timestamp>.apk
+```
+
+---
+
+## Instalar APK no Celular
+
+### Método 1: USB
+1. Conecte o celular no PC via USB
+2. Copie o APK para o celular
+3. Ative **Fontes desconhecidas** nas configurações
+4. Abra o APK no celular e instale
+
+### Método 2: Google Drive / WhatsApp
+1. Envie o APK para você mesmo
+2. Baixe no celular
+3. Instale normalmente
+
+---
+
+## Perfis de Build
+
+O projeto tem 3 perfis em `eas.json`:
+
+### 1. Preview (Recomendado)
+```powershell
+eas build --profile preview --platform android --local
+```
+- Gera APK standalone
+- Para distribuição interna
+- **Melhor para testes**
+
+### 2. Production
+```powershell
+eas build --profile production --platform android --local
+```
+- Build de release
+- Para Play Store
+- APK assinado
+
+### 3. Development
+```powershell
+eas build --profile development --platform android --local
+```
+- Inclui dev client
+- Para desenvolvimento
+
+---
+
+## Build na Nuvem (Alternativa)
+
+Se tiver problemas com build local:
+
+```powershell
+cd c:\wamp64\www\github\listow\listow
+$env:EAS_NO_VCS=1
+eas build --profile preview --platform android
+```
+
+Baixe o APK pelo link exibido no terminal.
+
+---
+
+## Troubleshooting
+
+### Erro: "ANDROID_HOME not set"
+```powershell
+# Verifique se está definido
+echo $env:ANDROID_HOME
+
+# Se estiver vazio, defina:
+$env:ANDROID_HOME="C:\Users\[SEU_USUARIO]\AppData\Local\Android\Sdk"
+
+# Depois adicione às variáveis do sistema (permanente)
+```
+
+### Erro: "Java version mismatch"
+```powershell
+# Verifique versão
+java -version
+
+# Se não for 17, reinstale JDK 17
+```
+
+### Erro: "adb not found"
+```powershell
+# Verifique se Android SDK foi instalado
+dir $env:ANDROID_HOME\platform-tools
+
+# Se vazio, reinstale Android SDK pelo Android Studio
+```
+
+### Erro: "Could not find or load main class"
+```powershell
+# Reinicie o PowerShell
+# Verifique PATH novamente
+echo $env:PATH | Select-String "Android"
+```
+
+### Build muito lento?
+```powershell
+# Use build na nuvem:
+eas build --profile preview --platform android
+```
+
+---
+
+## Comandos Úteis
+
+```powershell
+# Ver builds anteriores
+eas build:list
+
+# Cancelar build em andamento
+eas build:cancel
+
+# Ver configuração
+eas project:info
+
+# Atualizar EAS CLI
+npm install -g eas-cli
+```
+
+---
+
+## Resumo: Build Rápido
+
+**1. Primeira vez? Configure:**
+- Instale JDK 17
+- Instale Android Studio + SDK
+- Configure ANDROID_HOME
+- Adicione ao PATH
+
+**2. Para cada novo build:**
+```powershell
+cd c:\wamp64\www\github\listow\listow
+
+# Incrementar versão em app.json
+# Depois:
+
+$env:EAS_NO_VCS=1
+eas build --profile preview --platform android --local
+```
+
+**3. Aguarde 5-10 min e instale o APK! 🚀**
+
+---
+
+## Observações Importantes
+
+- ✅ **Não precisa** de variáveis de ambiente específicas do app
+- ✅ URL da API já está configurada no código
+- ✅ Versão atual: **0.0.3**
+- ✅ Sempre incremente a versão antes de buildar
+- ✅ APK pode ser instalado diretamente no Android
+
+
 ## Pré-requisitos
 
 1. **Node.js** instalado (v18 ou superior)
